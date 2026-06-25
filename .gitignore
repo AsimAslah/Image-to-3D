@@ -162,3 +162,25 @@ cython_debug/
 # default output directory
 output/
 outputs/
+
+# Local model and inference artifacts
+checkpoints/
+/models/
+*.ckpt
+*.pt
+*.pth
+*.safetensors
+*.onnx
+*.obj
+*.glb
+*.ply
+*.stl
+
+# Local Gradio/runtime scratch files
+flagged/
+tmp/
+temp/
+
+# Accidental nested repository copies
+TripoSR/
+*.zip

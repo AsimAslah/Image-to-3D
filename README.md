@@ -1,79 +1,242 @@
-# TripoSR
+# TripoSR Application Repository
 
-<a href="https://www.tripo3d.ai/research/triposr"><img src="https://img.shields.io/badge/Technical_Blog-gray?logo=data:image/svg%2bxml;base64,PHN2ZyB3aWR0aD0iNjUiIGhlaWdodD0iNjUiIHZpZXdCb3g9IjAgMCA2NSA2NSIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTkuNDk5MSA5LjYzNDc3TDE2LjQzNzQgMjEuNDU1NkMxNi40MzkzIDIxLjQ1ODkgMTYuNDQxMiAyMS40NjIyIDE2LjQ0MzEgMjEuNDY1NUwzMC4yNjU4IDQ1LjA1NDhDMzEuNTMyNyA0Ny4yMTY3IDM0LjcwNDUgNDcuMjE2NyAzNS45NzE0IDQ1LjA1NDhMNDkuMzg2MiAyMi4xNjE2SDU5LjQ2MThMNDEuMjY2IDUzLjE2MkMzNy42NDQ5IDU5LjMzMTMgMjguNTkyMyA1OS4zMzEzIDI0Ljk3MTIgNTMuMTYyTDYuNjM5NjcgMjEuOTMwMkM0LjAyNCAxNy40NzM5IDUuNjU5NTYgMTIuMjEyNyA5LjQ5OTEgOS42MzQ3N1oiIGZpbGw9IndoaXRlIi8+CjxwYXRoIGQ9Ik0yMC4xMTIxIDE2LjYwODdIMzQuNjkyNkwyOC42MjIgMjcuMDQ0MkMyOC4yMDMzIDI3Ljc2NCAyOC4yMDgzIDI4LjY0OTIgMjguNjM1MSAyOS4zNjQ0TDMxLjA1MjcgMzMuNDE1MUMzMS45NjU0IDM0Ljk0NDUgMzQuMjE2MyAzNC45MzY1IDM1LjExNzggMzMuNDAwNkw0NC45NzM5IDE2LjYwODdINDYuOTQyTDQ2Ljk0NTUgMTYuNjA4N0g2MC44NDQ2QzYwLjQ4MzIgMTIuMDU4NyA1Ni42NzMxIDguMDQ4ODMgNTEuNDUwOSA4LjA0ODgzTDE1LjA4NzkgOC4wNDg4M0wyMC4xMTIxIDE2LjYwODdaIiBmaWxsPSIjRjhDRjAwIi8+Cjwvc3ZnPgo="></a> <a href="https://huggingface.co/spaces/stabilityai/TripoSR"><img src="https://img.shields.io/badge/%F0%9F%A4%97%20HuggingFace-Demo-orange"></a> <a href="https://arxiv.org/abs/2403.02151"><img src="https://img.shields.io/badge/Arxiv-2403.02151-B31B1B.svg"></a> <a href="https://discord.gg/mvS9mCfMnQ"><img src="https://img.shields.io/badge/Discord-%235865F2.svg?logo=discord&logoColor=white"></a>
+[![Python](https://img.shields.io/badge/Python-3.8%2B-blue.svg)](https://www.python.org/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-Required-ee4c2c.svg)](https://pytorch.org/)
+[![Gradio](https://img.shields.io/badge/Gradio-4.20.1-orange.svg)](https://www.gradio.app/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Based on TripoSR](https://img.shields.io/badge/Based%20on-TripoSR-7c3aed.svg)](https://github.com/VAST-AI-Research/TripoSR)
 
-<div align="center">
-  <img src="figures/teaser800.gif" alt="Teaser Video">
-</div>
+> A cleaned and application-ready repository based on the open-source TripoSR project for fast single-image 3D reconstruction.
 
-This is the official codebase for **TripoSR**, a state-of-the-art open-source model for **fast** feedforward 3D reconstruction from a single image, collaboratively developed by [Tripo AI](https://www.tripo3d.ai/) and [Stability AI](https://stability.ai/).
-<br><br>
-Leveraging the principles of the [Large Reconstruction Model (LRM)](https://yiconghong.me/LRM/), TripoSR brings to the table key advancements that significantly boost both the speed and quality of 3D reconstruction. Our model is distinguished by its ability to rapidly process inputs, generating high-quality 3D models in less than 0.5 seconds on an NVIDIA A100 GPU. TripoSR has exhibited superior performance in both qualitative and quantitative evaluations, outperforming other open-source alternatives across multiple public datasets. The figures below illustrate visual comparisons and metrics showcasing TripoSR's performance relative to other leading models. Details about the model architecture, training process, and comparisons can be found in this [technical report](https://arxiv.org/abs/2403.02151).
+## 📌 Table of Contents
 
-<!--
-<div align="center">
-  <img src="figures/comparison800.gif" alt="Teaser Video">
-</div>
--->
-<p align="center">
-    <img width="800" src="figures/visual_comparisons.jpg"/>
-</p>
+- [Project Overview](#-project-overview)
+- [Features](#-features)
+- [Technologies Used](#-technologies-used)
+- [Requirements](#-requirements)
+- [Installation](#-installation)
+- [Usage](#-usage)
+- [Project Structure](#-project-structure)
+- [How the Application Works](#-how-the-application-works)
+- [Screenshots](#-screenshots)
+- [Future Improvements](#-future-improvements)
+- [Known Limitations](#-known-limitations)
+- [License](#-license)
+- [Contact](#-contact)
 
-<p align="center">
-    <img width="450" src="figures/scatter-comparison.png"/>
-</p>
+## 🚀 Project Overview
 
+This repository is based on the open-source [TripoSR](https://github.com/VAST-AI-Research/TripoSR) project, a feed-forward 3D reconstruction system that generates 3D assets from a single input image.
 
-The model is released under the MIT license, which includes the source code, pretrained models, and an interactive online demo. Our goal is to empower researchers, developers, and creatives to push the boundaries of what's possible in 3D generative AI and 3D content creation.
+The original TripoSR model and research were developed by Tripo AI and Stability AI. This repository does not claim ownership of the original model, training process, research, or pretrained weights. Instead, it provides a cleaned project structure with customizations and application-level modifications intended to make the project easier to run, document, and maintain as a GitHub repository.
 
-## Getting Started
-### Installation
-- Python >= 3.8
-- Install CUDA if available
-- Install PyTorch according to your platform: [https://pytorch.org/get-started/locally/](https://pytorch.org/get-started/locally/) **[Please make sure that the locally-installed CUDA major version matches the PyTorch-shipped CUDA major version. For example if you have CUDA 11.x installed, make sure to install PyTorch compiled with CUDA 11.x.]**
-- Update setuptools by `pip install --upgrade setuptools`
-- Install other dependencies by `pip install -r requirements.txt`
+Use this project to experiment with image-to-3D reconstruction through either a command-line workflow or a local Gradio interface.
 
-### Manual Inference
-```sh
+## ✨ Features
+
+- 🖼️ Single-image 3D reconstruction
+- 🧹 Optional automatic background removal with `rembg`
+- 🎛️ Adjustable foreground scaling and marching-cubes resolution
+- 📦 OBJ and GLB mesh export support
+- 🎨 Optional texture baking workflow
+- 🎥 Optional rendered preview video generation from the CLI
+- 🌐 Local Gradio web application for interactive usage
+- 📁 Example input images included for quick testing
+
+## 🧰 Technologies Used
+
+- Python
+- PyTorch
+- Transformers
+- Hugging Face Hub
+- Gradio
+- rembg
+- trimesh
+- xatlas
+- torchmcubes
+- Pillow
+- NumPy
+- imageio
+
+## ✅ Requirements
+
+- Python 3.8 or newer
+- Git
+- A working PyTorch installation
+- CUDA-compatible NVIDIA GPU recommended for practical performance
+- CPU execution is supported as a fallback, but it is significantly slower
+- Sufficient disk space for dependencies, cached pretrained weights, and generated 3D outputs
+
+> Important: install PyTorch using the command recommended for your operating system, Python version, and CUDA version from the official [PyTorch installation guide](https://pytorch.org/get-started/locally/).
+
+## ⚙️ Installation
+
+1. Clone the repository:
+
+   ```bash
+   git clone https://github.com/your-username/your-repository-name.git
+   cd your-repository-name
+   ```
+
+2. Create and activate a virtual environment:
+
+   ```bash
+   python -m venv .venv
+   ```
+
+   Windows:
+
+   ```bash
+   .venv\Scripts\activate
+   ```
+
+   macOS/Linux:
+
+   ```bash
+   source .venv/bin/activate
+   ```
+
+3. Upgrade packaging tools:
+
+   ```bash
+   pip install --upgrade pip setuptools wheel
+   ```
+
+4. Install PyTorch for your platform from the official PyTorch instructions.
+
+5. Install project dependencies:
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+## ▶️ Usage
+
+### Command-Line Inference
+
+Generate a 3D mesh from a sample image:
+
+```bash
 python run.py examples/chair.png --output-dir output/
 ```
-This will save the reconstructed 3D model to `output/`. You can also specify more than one image path separated by spaces. The default options takes about **6GB VRAM** for a single image input.
 
-If you would like to output a texture instead of vertex colors, use the `--bake-texture` option. You may also use `--texture-resolution` to specify the resolution in pixels of the output texture.
+Export as GLB:
 
-For detailed usage of this script, use `python run.py --help`.
+```bash
+python run.py examples/chair.png --model-save-format glb --output-dir output/
+```
 
-### Local Gradio App
-```sh
+Generate a mesh with baked texture:
+
+```bash
+python run.py examples/chair.png --bake-texture --texture-resolution 2048 --output-dir output/
+```
+
+Render preview frames and a video:
+
+```bash
+python run.py examples/chair.png --render --output-dir output/
+```
+
+Show all CLI options:
+
+```bash
+python run.py --help
+```
+
+### Local Gradio Application
+
+Start the web interface:
+
+```bash
 python gradio_app.py
 ```
 
-## Troubleshooting
-> AttributeError: module 'torchmcubes_module' has no attribute 'mcubes_cuda'
+Run on a custom port:
 
-or
-
-> torchmcubes was not compiled with CUDA support, use CPU version instead.
-
-This is because `torchmcubes` is compiled without CUDA support. Please make sure that 
-
-- The locally-installed CUDA major version matches the PyTorch-shipped CUDA major version. For example if you have CUDA 11.x installed, make sure to install PyTorch compiled with CUDA 11.x.
-- `setuptools>=49.6.0`. If not, upgrade by `pip install --upgrade setuptools`.
-
-Then re-install `torchmcubes` by:
-
-```sh
-pip uninstall torchmcubes
-pip install git+https://github.com/tatsy/torchmcubes.git
+```bash
+python gradio_app.py --port 7860
 ```
 
-## Citation
-```BibTeX
-@article{TripoSR2024,
-  title={TripoSR: Fast 3D Object Reconstruction from a Single Image},
-  author={Tochilkin, Dmitry and Pankratz, David and Liu, Zexiang and Huang, Zixuan and and Letts, Adam and Li, Yangguang and Liang, Ding and Laforte, Christian and Jampani, Varun and Cao, Yan-Pei},
-  journal={arXiv preprint arXiv:2403.02151},
-  year={2024}
-}
+Allow access from other devices on the network:
+
+```bash
+python gradio_app.py --listen
 ```
+
+Enable basic authentication:
+
+```bash
+python gradio_app.py --username admin --password your-password
+```
+
+## 📁 Project Structure
+
+```text
+.
+├── examples/                 # Sample input images
+├── figures/                  # Project images and visual references
+├── tsr/                      # TripoSR model and rendering source code
+│   ├── models/               # Network, tokenizer, renderer, and transformer modules
+│   ├── bake_texture.py       # Texture baking utilities
+│   ├── system.py             # Main TSR model system wrapper
+│   └── utils.py              # Image processing and helper utilities
+├── gradio_app.py             # Interactive local web UI
+├── run.py                    # Command-line inference script
+├── requirements.txt          # Python dependencies
+├── LICENSE                   # MIT license from the original project
+└── README.md                 # Project documentation
+```
+
+## 🧠 How the Application Works
+
+1. The user provides one or more input images.
+2. The application optionally removes the image background and resizes the foreground object.
+3. The pretrained TripoSR model is loaded from Hugging Face or a local model path.
+4. The model predicts a compact 3D scene representation from the processed image.
+5. A mesh is extracted using marching cubes.
+6. The result is exported as an OBJ or GLB file.
+7. Optional steps can bake a texture atlas or render preview frames/video.
+
+The Gradio app wraps this workflow in a browser-based interface, while `run.py` exposes the same core pipeline for scripted or batch usage.
+
+## 🖼️ Screenshots
+
+> Placeholder section for future screenshots.
+
+Suggested screenshots:
+
+- Gradio upload screen
+- Processed foreground preview
+- Generated OBJ/GLB model preview
+- Example output from `examples/chair.png`
+
+## 🛣️ Future Improvements
+
+- Add automated smoke tests for CLI argument parsing and preprocessing
+- Add a Dockerfile for reproducible GPU deployment
+- Add example output screenshots and generated mesh previews
+- Add optional configuration files for model path, device, and output settings
+- Improve error messages for missing CUDA, missing weights, or dependency installation issues
+- Add CI checks for formatting and dependency validation
+
+## ⚠️ Known Limitations
+
+- Output quality depends heavily on input image framing, object visibility, and background quality.
+- High marching-cubes resolutions and texture baking can require substantial VRAM.
+- CPU execution is supported but may be slow.
+- The first run may download pretrained model assets from Hugging Face.
+- `torchmcubes` installation can be sensitive to CUDA and PyTorch version compatibility.
+- This repository depends on the original open-source TripoSR implementation and pretrained model availability.
+
+## 📄 License
+
+This repository retains the MIT license included with the original TripoSR project. See [LICENSE](LICENSE) for details.
+
+Please review the original TripoSR repository, model card, and related research materials for any additional usage guidance around the pretrained model and research artifacts.
+
+## 📬 Contact
+
+For questions about this customized application repository, open an issue in this GitHub repository or update this section with your preferred maintainer contact details.
+
+For the original TripoSR research and model, refer to the official [VAST-AI-Research/TripoSR](https://github.com/VAST-AI-Research/TripoSR) project.

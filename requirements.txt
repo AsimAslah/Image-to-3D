@@ -7,6 +7,6 @@ trimesh==4.0.5
 rembg
 huggingface-hub
 imageio[ffmpeg]
-gradio
+gradio==4.20.1
 xatlas==0.0.9
 moderngl==5.10.0
