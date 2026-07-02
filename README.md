@@ -10,7 +10,7 @@
 
 This project is built using TripoSR. This repository contains my implementation and customization of an Image-to-3D Generation Application for academic purposes.
 
-The application converts a single 2D image into a 3D mesh through a command-line workflow or an interactive Gradio interface. It adds application-level integration around the pretrained TripoSR model, including image preprocessing, optional background removal, configurable mesh extraction, OBJ and GLB export, texture baking, and preview rendering.
+The application converts a single 2D image into a 3D mesh through an interactive Gradio interface. It adds an application workflow around the pretrained TripoSR model, including image preprocessing, optional background removal, configurable mesh extraction, interactive preview, and OBJ and GLB export.
 
 This repository does not claim ownership of TripoSR, its model architecture, research, pretrained weights, or original source code. TripoSR was developed by [Tripo AI](https://www.tripo3d.ai/) and [Stability AI](https://stability.ai/); the original open-source project is maintained at [VAST-AI-Research/TripoSR](https://github.com/VAST-AI-Research/TripoSR).
 
@@ -21,8 +21,6 @@ This repository does not claim ownership of TripoSR, its model architecture, res
 - Supports OBJ and GLB model export
 - Removes image backgrounds automatically with `rembg`
 - Offers configurable foreground scaling and marching-cubes resolution
-- Supports optional texture-atlas baking
-- Supports optional rendered preview-video generation from the CLI
 - Falls back to CPU execution when CUDA is unavailable
 
 ## Technologies Used
@@ -31,9 +29,8 @@ This repository does not claim ownership of TripoSR, its model architecture, res
 - **Machine learning:** PyTorch, Transformers, TripoSR
 - **Interface:** Gradio
 - **Image processing:** Pillow, NumPy, rembg
-- **3D processing:** trimesh, torchmcubes, xatlas, moderngl
+- **3D processing:** trimesh, torchmcubes
 - **Model distribution:** Hugging Face Hub
-- **Media export:** imageio with FFmpeg support
 
 ## System Architecture / Workflow
 
@@ -52,12 +49,11 @@ Implicit 3D scene representation
     v
 Marching-cubes mesh extraction
     |
-    +--> OBJ or GLB export
-    +--> Optional texture baking
-    +--> Optional rendered preview video
+    v
+Interactive 3D preview and OBJ/GLB export
 ```
 
-The Gradio interface provides this workflow in a browser. `run.py` exposes the same reconstruction pipeline for command-line and batch-oriented use.
+The Gradio interface provides the complete application workflow in a browser. The `tsr/` package is the required TripoSR inference engine used by the application; it is retained with its original attribution because the model configuration imports these modules directly.
 
 ## Installation
 
@@ -74,8 +70,8 @@ The Gradio interface provides this workflow in a browser. `run.py` exposes the s
 1. Clone the repository and enter the project directory:
 
    ```bash
-   git clone https://github.com/AsimAslah/TripoSR-Image-to-3D.git
-   cd TripoSR-Image-to-3D
+   git clone https://github.com/AsimAslah/Image-to-3D.git
+   cd Image-to-3D
    ```
 
 2. Create and activate a virtual environment:
@@ -117,7 +113,7 @@ The Gradio interface provides this workflow in a browser. `run.py` exposes the s
 Start the Gradio interface:
 
 ```bash
-python gradio_app.py
+python app.py
 ```
 
 Open `http://127.0.0.1:7860` in a browser, upload an image or select the included chair sample, adjust the options, and select **Generate 3D Model**.
@@ -125,42 +121,10 @@ Open `http://127.0.0.1:7860` in a browser, upload an image or select the include
 Useful launch options:
 
 ```bash
-python gradio_app.py --port 7860
-python gradio_app.py --listen
-python gradio_app.py --share
-python gradio_app.py --username admin --password your-password
-```
-
-### Command Line
-
-Generate an OBJ mesh from the included sample:
-
-```bash
-python run.py examples/chair.png --output-dir output/
-```
-
-Export a GLB model:
-
-```bash
-python run.py examples/chair.png --model-save-format glb --output-dir output/
-```
-
-Generate a textured mesh:
-
-```bash
-python run.py examples/chair.png --bake-texture --texture-resolution 2048 --output-dir output/
-```
-
-Generate a rendered preview video:
-
-```bash
-python run.py examples/chair.png --render --output-dir output/
-```
-
-List every CLI option:
-
-```bash
-python run.py --help
+python app.py --port 7860
+python app.py --listen
+python app.py --share
+python app.py --username admin --password your-password
 ```
 
 ## Project Structure
@@ -171,11 +135,9 @@ python run.py --help
 |   `-- chair.png              # Reproducible sample input
 |-- tsr/                       # TripoSR inference and rendering implementation
 |   |-- models/                # Model, tokenizer, renderer, and transformer modules
-|   |-- bake_texture.py        # Texture-atlas baking utilities
 |   |-- system.py              # TripoSR model-system wrapper
 |   `-- utils.py               # Image, rendering, and configuration utilities
-|-- gradio_app.py              # Interactive web application
-|-- run.py                     # Command-line inference entry point
+|-- app.py                     # Image-to-3D Gradio application
 |-- requirements.txt           # Python dependencies
 |-- LICENSE                    # Original TripoSR MIT license and copyright
 `-- README.md                  # Project documentation
@@ -185,21 +147,13 @@ The pretrained model configuration and weights are downloaded from the `stabilit
 
 ## Output Examples
 
-Generated files are written to the selected output directory and intentionally excluded from version control.
+The Gradio interface displays the generated model in an interactive viewer and provides downloadable OBJ and GLB files. Generated files are temporary runtime artifacts and are intentionally excluded from version control.
 
-| Workflow | Output |
-| --- | --- |
-| Default CLI inference | `output/0/mesh.obj` |
-| GLB export | `output/0/mesh.glb` |
-| Texture baking | Mesh plus `output/0/texture.png` |
-| Preview rendering | Render frames plus `output/0/render.mp4` |
-| Gradio interface | Downloadable OBJ and GLB models with an interactive preview |
-
-For a reproducible demonstration, use `examples/chair.png` with either the CLI command or the sample selector in the Gradio interface.
+For a reproducible demonstration, use `examples/chair.png` through the sample selector in the Gradio interface.
 
 ## Future Improvements
 
-- Add automated tests for preprocessing, CLI arguments, and output generation
+- Add automated tests for preprocessing and output generation
 - Add verified screenshots and generated-model previews from project runs
 - Add a Docker configuration for reproducible deployment
 - Add clearer runtime diagnostics for missing CUDA support or model assets

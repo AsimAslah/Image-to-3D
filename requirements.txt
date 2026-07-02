@@ -6,7 +6,4 @@ transformers==4.36.2
 trimesh==4.0.5
 rembg
 huggingface-hub==0.20.3
-imageio[ffmpeg]
 gradio==4.20.1
-xatlas==0.0.9
-moderngl==5.10.0

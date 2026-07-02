@@ -4,7 +4,6 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
-import imageio
 import numpy as np
 import PIL.Image
 import rembg
@@ -453,19 +452,6 @@ def resize_foreground(
     )
     new_image = PIL.Image.fromarray(new_image)
     return new_image
-
-
-def save_video(
-    frames: List[PIL.Image.Image],
-    output_path: str,
-    fps: int = 30,
-):
-    # use imageio to save video
-    frames = [np.array(frame) for frame in frames]
-    writer = imageio.get_writer(output_path, fps=fps)
-    for frame in frames:
-        writer.append_data(frame)
-    writer.close()
 
 
 def to_gradio_3d_orientation(mesh):
