@@ -43,7 +43,9 @@ timer = Timer()
 logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO
 )
-parser = argparse.ArgumentParser()
+parser = argparse.ArgumentParser(
+    description="Generate a 3D model from one or more images using TripoSR."
+)
 parser.add_argument("image", type=str, nargs="+", help="Path to input image(s).")
 parser.add_argument(
     "--device",

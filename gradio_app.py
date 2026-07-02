@@ -1,19 +1,15 @@
-import logging
-import os
+import argparse
 import tempfile
-import time
+from functools import partial
 
 import gradio as gr
 import numpy as np
 import rembg
 import torch
 from PIL import Image
-from functools import partial
 
 from tsr.system import TSR
 from tsr.utils import remove_background, resize_foreground, to_gradio_3d_orientation
-
-import argparse
 
 
 if torch.cuda.is_available():
@@ -76,16 +72,18 @@ def run_example(image_pil):
     return preprocessed, mesh_name_obj, mesh_name_glb
 
 
-with gr.Blocks(title="TripoSR") as interface:
+with gr.Blocks(title="Image-to-3D Generation Application") as interface:
     gr.Markdown(
         """
-    # TripoSR Demo
-    [TripoSR](https://github.com/VAST-AI-Research/TripoSR) is a state-of-the-art open-source model for **fast** feedforward 3D reconstruction from a single image, collaboratively developed by [Tripo AI](https://www.tripo3d.ai/) and [Stability AI](https://stability.ai/).
+    # Image-to-3D Generation Application
+    This academic application converts a single 2D image into a 3D model using [TripoSR](https://github.com/VAST-AI-Research/TripoSR), an open-source model developed by [Tripo AI](https://www.tripo3d.ai/) and [Stability AI](https://stability.ai/).
+
+    This interface is an implementation and customization built around TripoSR; it does not claim ownership of the original model, research, or pretrained weights.
     
     **Tips:**
-    1. If you find the result is unsatisfied, please try to change the foreground ratio. It might improve the results.
-    2. It's better to disable "Remove Background" for the provided examples (except fot the last one) since they have been already preprocessed.
-    3. Otherwise, please disable "Remove Background" option only if your input image is RGBA with transparent background, image contents are centered and occupy more than 70% of image width or height.
+    1. Adjust the foreground ratio if the generated geometry does not represent the input object well.
+    2. Disable **Remove Background** for the included sample because it has already been preprocessed.
+    3. For uploaded images, disable **Remove Background** only when the image already has a transparent background and a centered foreground object.
     """
     )
     with gr.Row(variant="panel"):
@@ -119,7 +117,7 @@ with gr.Blocks(title="TripoSR") as interface:
                         step=32
                     )
             with gr.Row():
-                submit = gr.Button("Generate", elem_id="generate", variant="primary")
+                submit = gr.Button("Generate 3D Model", elem_id="generate", variant="primary")
         with gr.Column():
             with gr.Tab("OBJ"):
                 output_model_obj = gr.Model3D(
@@ -136,26 +134,14 @@ with gr.Blocks(title="TripoSR") as interface:
     with gr.Row(variant="panel"):
         gr.Examples(
             examples=[
-                "examples/hamburger.png",
-                "examples/poly_fox.png",
-                "examples/robot.png",
-                "examples/teapot.png",
-                "examples/tiger_girl.png",
-                "examples/horse.png",
-                "examples/flamingo.png",
-                "examples/unicorn.png",
                 "examples/chair.png",
-                "examples/iso_house.png",
-                "examples/marble.png",
-                "examples/police_woman.png",
-                "examples/captured.jpeg",
             ],
             inputs=[input_image],
             outputs=[processed_image, output_model_obj, output_model_glb],
             cache_examples=False,
             fn=partial(run_example),
-            label="Examples",
-            examples_per_page=20,
+            label="Sample Input",
+            examples_per_page=1,
         )
     submit.click(fn=check_input_image, inputs=[input_image]).success(
         fn=preprocess,

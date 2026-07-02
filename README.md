@@ -1,81 +1,81 @@
-# TripoSR Application Repository
+# Image-to-3D Generation Application
 
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue.svg)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-Required-ee4c2c.svg)](https://pytorch.org/)
 [![Gradio](https://img.shields.io/badge/Gradio-4.20.1-orange.svg)](https://www.gradio.app/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Based on TripoSR](https://img.shields.io/badge/Based%20on-TripoSR-7c3aed.svg)](https://github.com/VAST-AI-Research/TripoSR)
+[![Built with TripoSR](https://img.shields.io/badge/Built%20with-TripoSR-7c3aed.svg)](https://github.com/VAST-AI-Research/TripoSR)
 
-> A cleaned and application-ready repository based on the open-source TripoSR project for fast single-image 3D reconstruction.
+## Overview
 
-## 📌 Table of Contents
+This project is built using TripoSR. This repository contains my implementation and customization of an Image-to-3D Generation Application for academic purposes.
 
-- [Project Overview](#-project-overview)
-- [Features](#-features)
-- [Technologies Used](#-technologies-used)
-- [Requirements](#-requirements)
-- [Installation](#-installation)
-- [Usage](#-usage)
-- [Project Structure](#-project-structure)
-- [How the Application Works](#-how-the-application-works)
-- [Screenshots](#-screenshots)
-- [Future Improvements](#-future-improvements)
-- [Known Limitations](#-known-limitations)
-- [License](#-license)
-- [Contact](#-contact)
+The application converts a single 2D image into a 3D mesh through a command-line workflow or an interactive Gradio interface. It adds application-level integration around the pretrained TripoSR model, including image preprocessing, optional background removal, configurable mesh extraction, OBJ and GLB export, texture baking, and preview rendering.
 
-## 🚀 Project Overview
+This repository does not claim ownership of TripoSR, its model architecture, research, pretrained weights, or original source code. TripoSR was developed by [Tripo AI](https://www.tripo3d.ai/) and [Stability AI](https://stability.ai/); the original open-source project is maintained at [VAST-AI-Research/TripoSR](https://github.com/VAST-AI-Research/TripoSR).
 
-This repository is based on the open-source [TripoSR](https://github.com/VAST-AI-Research/TripoSR) project, a feed-forward 3D reconstruction system that generates 3D assets from a single input image.
+## Features
 
-The original TripoSR model and research were developed by Tripo AI and Stability AI. This repository does not claim ownership of the original model, training process, research, or pretrained weights. Instead, it provides a cleaned project structure with customizations and application-level modifications intended to make the project easier to run, document, and maintain as a GitHub repository.
+- Generates a 3D mesh from a single input image
+- Provides an interactive Gradio web interface
+- Supports OBJ and GLB model export
+- Removes image backgrounds automatically with `rembg`
+- Offers configurable foreground scaling and marching-cubes resolution
+- Supports optional texture-atlas baking
+- Supports optional rendered preview-video generation from the CLI
+- Falls back to CPU execution when CUDA is unavailable
 
-Use this project to experiment with image-to-3D reconstruction through either a command-line workflow or a local Gradio interface.
+## Technologies Used
 
-## ✨ Features
+- **Language:** Python
+- **Machine learning:** PyTorch, Transformers, TripoSR
+- **Interface:** Gradio
+- **Image processing:** Pillow, NumPy, rembg
+- **3D processing:** trimesh, torchmcubes, xatlas, moderngl
+- **Model distribution:** Hugging Face Hub
+- **Media export:** imageio with FFmpeg support
 
-- 🖼️ Single-image 3D reconstruction
-- 🧹 Optional automatic background removal with `rembg`
-- 🎛️ Adjustable foreground scaling and marching-cubes resolution
-- 📦 OBJ and GLB mesh export support
-- 🎨 Optional texture baking workflow
-- 🎥 Optional rendered preview video generation from the CLI
-- 🌐 Local Gradio web application for interactive usage
-- 📁 Example input images included for quick testing
+## System Architecture / Workflow
 
-## 🧰 Technologies Used
+```text
+Input image
+    |
+    v
+Optional background removal and foreground resizing
+    |
+    v
+Pretrained TripoSR model inference
+    |
+    v
+Implicit 3D scene representation
+    |
+    v
+Marching-cubes mesh extraction
+    |
+    +--> OBJ or GLB export
+    +--> Optional texture baking
+    +--> Optional rendered preview video
+```
 
-- Python
-- PyTorch
-- Transformers
-- Hugging Face Hub
-- Gradio
-- rembg
-- trimesh
-- xatlas
-- torchmcubes
-- Pillow
-- NumPy
-- imageio
+The Gradio interface provides this workflow in a browser. `run.py` exposes the same reconstruction pipeline for command-line and batch-oriented use.
 
-## ✅ Requirements
+## Installation
+
+### Prerequisites
 
 - Python 3.8 or newer
 - Git
-- A working PyTorch installation
-- CUDA-compatible NVIDIA GPU recommended for practical performance
-- CPU execution is supported as a fallback, but it is significantly slower
-- Sufficient disk space for dependencies, cached pretrained weights, and generated 3D outputs
+- A PyTorch installation compatible with the target hardware
+- An NVIDIA CUDA-capable GPU is recommended; CPU execution is supported but slower
+- Internet access on the first run to download the pretrained model from Hugging Face
 
-> Important: install PyTorch using the command recommended for your operating system, Python version, and CUDA version from the official [PyTorch installation guide](https://pytorch.org/get-started/locally/).
+### Setup
 
-## ⚙️ Installation
-
-1. Clone the repository:
+1. Clone the repository and enter the project directory:
 
    ```bash
-   git clone https://github.com/your-username/your-repository-name.git
-   cd your-repository-name
+   git clone https://github.com/AsimAslah/TripoSR-Image-to-3D.git
+   cd TripoSR-Image-to-3D
    ```
 
 2. Create and activate a virtual environment:
@@ -84,159 +84,140 @@ Use this project to experiment with image-to-3D reconstruction through either a 
    python -m venv .venv
    ```
 
-   Windows:
+   Windows PowerShell:
 
-   ```bash
-   .venv\Scripts\activate
+   ```powershell
+   .\.venv\Scripts\Activate.ps1
    ```
 
-   macOS/Linux:
+   macOS or Linux:
 
    ```bash
    source .venv/bin/activate
    ```
 
-3. Upgrade packaging tools:
+3. Upgrade the packaging tools:
 
    ```bash
-   pip install --upgrade pip setuptools wheel
+   python -m pip install --upgrade pip setuptools wheel
    ```
 
-4. Install PyTorch for your platform from the official PyTorch instructions.
+4. Install PyTorch using the command for the operating system and CUDA version from the [official PyTorch installation guide](https://pytorch.org/get-started/locally/).
 
-5. Install project dependencies:
+5. Install the remaining dependencies:
 
    ```bash
    pip install -r requirements.txt
    ```
 
-## ▶️ Usage
+## Usage
 
-### Command-Line Inference
+### Web Application
 
-Generate a 3D mesh from a sample image:
-
-```bash
-python run.py examples/chair.png --output-dir output/
-```
-
-Export as GLB:
-
-```bash
-python run.py examples/chair.png --model-save-format glb --output-dir output/
-```
-
-Generate a mesh with baked texture:
-
-```bash
-python run.py examples/chair.png --bake-texture --texture-resolution 2048 --output-dir output/
-```
-
-Render preview frames and a video:
-
-```bash
-python run.py examples/chair.png --render --output-dir output/
-```
-
-Show all CLI options:
-
-```bash
-python run.py --help
-```
-
-### Local Gradio Application
-
-Start the web interface:
+Start the Gradio interface:
 
 ```bash
 python gradio_app.py
 ```
 
-Run on a custom port:
+Open `http://127.0.0.1:7860` in a browser, upload an image or select the included chair sample, adjust the options, and select **Generate 3D Model**.
+
+Useful launch options:
 
 ```bash
 python gradio_app.py --port 7860
-```
-
-Allow access from other devices on the network:
-
-```bash
 python gradio_app.py --listen
-```
-
-Enable basic authentication:
-
-```bash
+python gradio_app.py --share
 python gradio_app.py --username admin --password your-password
 ```
 
-## 📁 Project Structure
+### Command Line
+
+Generate an OBJ mesh from the included sample:
+
+```bash
+python run.py examples/chair.png --output-dir output/
+```
+
+Export a GLB model:
+
+```bash
+python run.py examples/chair.png --model-save-format glb --output-dir output/
+```
+
+Generate a textured mesh:
+
+```bash
+python run.py examples/chair.png --bake-texture --texture-resolution 2048 --output-dir output/
+```
+
+Generate a rendered preview video:
+
+```bash
+python run.py examples/chair.png --render --output-dir output/
+```
+
+List every CLI option:
+
+```bash
+python run.py --help
+```
+
+## Project Structure
 
 ```text
 .
-├── examples/                 # Sample input images
-├── figures/                  # Project images and visual references
-├── tsr/                      # TripoSR model and rendering source code
-│   ├── models/               # Network, tokenizer, renderer, and transformer modules
-│   ├── bake_texture.py       # Texture baking utilities
-│   ├── system.py             # Main TSR model system wrapper
-│   └── utils.py              # Image processing and helper utilities
-├── gradio_app.py             # Interactive local web UI
-├── run.py                    # Command-line inference script
-├── requirements.txt          # Python dependencies
-├── LICENSE                   # MIT license from the original project
-└── README.md                 # Project documentation
+|-- examples/
+|   `-- chair.png              # Reproducible sample input
+|-- tsr/                       # TripoSR inference and rendering implementation
+|   |-- models/                # Model, tokenizer, renderer, and transformer modules
+|   |-- bake_texture.py        # Texture-atlas baking utilities
+|   |-- system.py              # TripoSR model-system wrapper
+|   `-- utils.py               # Image, rendering, and configuration utilities
+|-- gradio_app.py              # Interactive web application
+|-- run.py                     # Command-line inference entry point
+|-- requirements.txt           # Python dependencies
+|-- LICENSE                    # Original TripoSR MIT license and copyright
+`-- README.md                  # Project documentation
 ```
 
-## 🧠 How the Application Works
+The pretrained model configuration and weights are downloaded from the `stabilityai/TripoSR` Hugging Face repository at runtime and are not committed to this repository.
 
-1. The user provides one or more input images.
-2. The application optionally removes the image background and resizes the foreground object.
-3. The pretrained TripoSR model is loaded from Hugging Face or a local model path.
-4. The model predicts a compact 3D scene representation from the processed image.
-5. A mesh is extracted using marching cubes.
-6. The result is exported as an OBJ or GLB file.
-7. Optional steps can bake a texture atlas or render preview frames/video.
+## Output Examples
 
-The Gradio app wraps this workflow in a browser-based interface, while `run.py` exposes the same core pipeline for scripted or batch usage.
+Generated files are written to the selected output directory and intentionally excluded from version control.
 
-## 🖼️ Screenshots
+| Workflow | Output |
+| --- | --- |
+| Default CLI inference | `output/0/mesh.obj` |
+| GLB export | `output/0/mesh.glb` |
+| Texture baking | Mesh plus `output/0/texture.png` |
+| Preview rendering | Render frames plus `output/0/render.mp4` |
+| Gradio interface | Downloadable OBJ and GLB models with an interactive preview |
 
-> Placeholder section for future screenshots.
+For a reproducible demonstration, use `examples/chair.png` with either the CLI command or the sample selector in the Gradio interface.
 
-Suggested screenshots:
+## Future Improvements
 
-- Gradio upload screen
-- Processed foreground preview
-- Generated OBJ/GLB model preview
-- Example output from `examples/chair.png`
+- Add automated tests for preprocessing, CLI arguments, and output generation
+- Add verified screenshots and generated-model previews from project runs
+- Add a Docker configuration for reproducible deployment
+- Add clearer runtime diagnostics for missing CUDA support or model assets
+- Add configurable model, device, and output settings through a project configuration file
+- Improve accessibility and progress feedback in the Gradio interface
 
-## 🛣️ Future Improvements
+## Attribution
 
-- Add automated smoke tests for CLI argument parsing and preprocessing
-- Add a Dockerfile for reproducible GPU deployment
-- Add example output screenshots and generated mesh previews
-- Add optional configuration files for model path, device, and output settings
-- Improve error messages for missing CUDA, missing weights, or dependency installation issues
-- Add CI checks for formatting and dependency validation
+This application uses the open-source [TripoSR](https://github.com/VAST-AI-Research/TripoSR) implementation and the pretrained [`stabilityai/TripoSR`](https://huggingface.co/stabilityai/TripoSR) model. TripoSR was developed by Tripo AI and Stability AI.
 
-## ⚠️ Known Limitations
+My contribution is the integration, customization, application workflow, and academic implementation presented in this repository. No ownership is claimed over TripoSR, its research, model architecture, pretrained weights, or original source code.
 
-- Output quality depends heavily on input image framing, object visibility, and background quality.
-- High marching-cubes resolutions and texture baking can require substantial VRAM.
-- CPU execution is supported but may be slow.
-- The first run may download pretrained model assets from Hugging Face.
-- `torchmcubes` installation can be sensitive to CUDA and PyTorch version compatibility.
-- This repository depends on the original open-source TripoSR implementation and pretrained model availability.
+Please consult the original project and model pages for research details, model information, and upstream usage guidance.
 
-## 📄 License
+## License
 
-This repository retains the MIT license included with the original TripoSR project. See [LICENSE](LICENSE) for details.
+The retained TripoSR source code is distributed under the MIT License included in [LICENSE](LICENSE), which preserves the original copyright notice:
 
-Please review the original TripoSR repository, model card, and related research materials for any additional usage guidance around the pretrained model and research artifacts.
+> Copyright (c) 2024 Tripo AI & Stability AI
 
-## 📬 Contact
-
-For questions about this customized application repository, open an issue in this GitHub repository or update this section with your preferred maintainer contact details.
-
-For the original TripoSR research and model, refer to the official [VAST-AI-Research/TripoSR](https://github.com/VAST-AI-Research/TripoSR) project.
+The software is provided without warranty. Review the original [TripoSR repository](https://github.com/VAST-AI-Research/TripoSR), its license, and the associated model documentation before redistribution or deployment.
