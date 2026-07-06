@@ -1,0 +1,11 @@
+{% if error %}
+  <p class="error">{{ error }}</p>
+{% else %}
+  <input type="hidden" name="conversion_id" value="{{ conversion_id }}" form="product-form">
+  <div class="preview-grid">
+    <img src="{{ image_url }}" alt="Uploaded product">
+    <model-viewer src="{{ glb_url }}" camera-controls auto-rotate shadow-intensity="1" alt="Generated 3D product"></model-viewer>
+  </div>
+  <p class="success">3D model ready. <a href="{{ obj_url }}" download>Download OBJ</a> · <a href="{{ glb_url }}" download>Download GLB</a></p>
+  <script>document.getElementById('save-button').disabled = false;</script>
+{% endif %}

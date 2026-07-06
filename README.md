@@ -1,5 +1,23 @@
 # Image-to-3D Generation Application
 
+## Product Studio (FastAPI)
+
+The new product workflow provides a Jinja2 and HTMX interface for entering
+furniture metadata, uploading an image, converting it to OBJ and GLB with
+TripoSR, previewing the GLB, and saving the product and public asset URLs to
+Supabase.
+
+1. Change directory: `cd web-Brickrat`
+2. Install the dependencies: `pip install -r requirements.txt`
+3. Copy `.env.example` to `.env` and set the Supabase values.
+4. Run `supabase.sql` in the Supabase SQL editor and create a public Storage
+   bucket named `products` (or use the configured bucket name).
+5. Start the server: `uvicorn main:app --reload`
+6. Open `http://127.0.0.1:8000`.
+
+The TripoSR model is downloaded and loaded lazily on the first conversion. The
+original Gradio application remains available through `python app.py`.
+
 ## Overview
 
 This project is built using [TripoSR](https://github.com/VAST-AI-Research/TripoSR). It is an Image-to-3D Generation Application that converts a single 2D image into a 3D model through an interactive Gradio interface.
