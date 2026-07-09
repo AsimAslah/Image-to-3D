@@ -10,11 +10,13 @@ create table if not exists public.products (
   image_sha256 text not null,
   obj_url text not null,
   model_url text not null,
+  usdz_url text,
   created_at timestamptz not null default now()
 );
 
 -- Run these migration statements too when the products table already exists.
 alter table public.products add column if not exists image_sha256 text;
+alter table public.products add column if not exists usdz_url text;
 create unique index if not exists products_image_sha256_key
   on public.products (image_sha256)
   where image_sha256 is not null;

@@ -42,14 +42,20 @@ geometry that is fully hidden or ambiguous in the source photograph.
 
 After conversion, the result view uses `<model-viewer>` to load the generated
 `model.glb` from the app's `/generated/<conversion_id>/model.glb` static route.
-The GLB preview supports browser camera controls, auto-rotation, and a
-`View in AR` button using WebXR, Scene Viewer, and Quick Look mode hints.
-OBJ remains available for preview and download, but AR uses the generated GLB.
+The GLB preview supports desktop/browser viewing with camera controls and
+auto-rotation. Android AR uses the GLB through model-viewer WebXR or Scene
+Viewer. OBJ remains available for preview and download, but AR uses GLB on
+Android.
+
+iPhone Safari AR requires USDZ through Apple Quick Look. If a `model.usdz` file
+exists beside `model.glb` in the generated conversion folder, the template adds
+`ios-src` and the Supabase save flow uploads `usdz_url`. TripoSR does not
+generate USDZ in this app yet, so USDZ is optional placeholder support for a
+future converter or a manually supplied file.
 
 WebXR and mobile AR require HTTPS on deployed sites. Localhost is acceptable for
-development, but Android phone testing should use an HTTPS deployment or tunnel.
-iOS Quick Look generally requires a USDZ file; this app leaves a template hook
-for `ios-src` but does not generate USDZ in this version.
+desktop development. For mobile testing, use ngrok or deploy behind HTTPS
+hosting.
 
 Testing checklist:
 
@@ -58,5 +64,10 @@ Testing checklist:
 3. Upload a furniture image and convert it.
 4. Confirm `model.obj` and `model.glb` are generated.
 5. Confirm the OBJ preview, GLB preview, and both download links appear.
-6. On a supported Android device over HTTPS, tap `View in AR`.
-7. Save to Supabase and confirm the existing save/undo flow still works.
+6. Use an ngrok HTTPS URL or deployed HTTPS URL for mobile testing.
+7. On a supported Android device, tap `View in AR` and confirm GLB AR opens.
+8. On iPhone Safari without USDZ, confirm the pending-support message appears.
+9. To test iPhone Quick Look, have a future converter or manual test hook place
+   `model.usdz` in the generated conversion folder before the result template is
+   rendered; then confirm `View in AR` opens Apple Quick Look.
+10. Save to Supabase and confirm the existing save/undo flow still works.

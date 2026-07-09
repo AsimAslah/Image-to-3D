@@ -13,7 +13,7 @@ class SupabaseNotConfigured(RuntimeError):
 TABLE_NAME_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,62}$")
 PRODUCT_FIELDS = {
     "name", "category", "subcategory", "description", "price", "image_url",
-    "image_sha256", "obj_url", "model_url",
+    "image_sha256", "obj_url", "model_url", "usdz_url",
 }
 
 
@@ -49,7 +49,8 @@ def _client():
 
 
 def save_product(*, conversion_id: UUID, product: dict, image_path: Path,
-                 obj_path: Path, glb_path: Path, table_name: str) -> SaveOutcome:
+                 obj_path: Path, glb_path: Path, usdz_path: Path | None = None,
+                 table_name: str) -> SaveOutcome:
     table_name = validate_table_name(table_name)
     client = _client()
     bucket = os.getenv("SUPABASE_STORAGE_BUCKET", "products")
@@ -91,6 +92,11 @@ def save_product(*, conversion_id: UUID, product: dict, image_path: Path,
         )
     obj_url = upload(obj_path, f"{model_prefix}/model.obj", "text/plain")
     glb_url = upload(glb_path, f"{model_prefix}/model.glb", "model/gltf-binary")
+    usdz_url = None
+    if usdz_path is not None and usdz_path.is_file():
+        usdz_url = upload(
+            usdz_path, f"{model_prefix}/model.usdz", "model/vnd.usdz+zip",
+        )
     row = {
         **product,
         "image_url": image_url,
@@ -98,6 +104,8 @@ def save_product(*, conversion_id: UUID, product: dict, image_path: Path,
         "obj_url": obj_url,
         "model_url": glb_url,
     }
+    if usdz_url:
+        row["usdz_url"] = usdz_url
     if existing:
         previous_product = {key: existing[key] for key in PRODUCT_FIELDS if key in existing}
         result = client.table(table_name).update(row).eq("id", existing["id"]).execute()
@@ -123,6 +131,7 @@ def undo_product_save(*, conversion_id: UUID, table_name: str, product_id: str,
         paths = [
             f"models/{conversion_id}/model.obj",
             f"models/{conversion_id}/model.glb",
+            f"models/{conversion_id}/model.usdz",
         ]
         if new_image_path:
             paths.append(new_image_path)

@@ -24,6 +24,7 @@
       <model-viewer
         class="ar-model-viewer"
         src="{{ glb_url }}"
+        {% if usdz_url %}ios-src="{{ usdz_url }}"{% endif %}
         alt="Generated furniture 3D model"
         ar
         ar-modes="webxr scene-viewer quick-look"
@@ -32,11 +33,16 @@
         shadow-intensity="1"
         exposure="1.1"
         field-of-view="35deg">
-        {# Optional future iOS support: add ios-src="{{ usdz_url }}" after USDZ generation exists. #}
         <div slot="poster" class="model-loading">Loading GLB preview...</div>
         <button slot="ar-button" class="ar-button" type="button">View in AR</button>
       </model-viewer>
       <p class="model-error" hidden>GLB model failed to load. Try downloading the GLB or converting again.</p>
+      {% if usdz_url %}
+      <p class="ar-note">iPhone AR is available through Apple Quick Look.</p>
+      <a href="{{ usdz_url }}" download>Download USDZ</a>
+      {% else %}
+      <p class="ar-note">iPhone AR requires a USDZ file. GLB AR works mainly on Android devices.</p>
+      {% endif %}
       <p class="ar-note">AR works best on supported mobile devices with HTTPS.</p>
       <a href="{{ glb_url }}" download>Download GLB</a>
       {% else %}

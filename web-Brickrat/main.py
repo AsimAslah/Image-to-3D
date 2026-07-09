@@ -1,5 +1,6 @@
 import shutil
 import threading
+import mimetypes
 from pathlib import Path
 from uuid import UUID, uuid4
 
@@ -19,6 +20,7 @@ BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / ".env")
 GENERATED_DIR = BASE_DIR / "generated"
 GENERATED_DIR.mkdir(exist_ok=True)
+mimetypes.add_type("model/vnd.usdz+zip", ".usdz")
 
 app = FastAPI(title="TripoSR Product Studio")
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
@@ -102,6 +104,7 @@ def convert_image(
     base_url = f"/generated/{conversion_id}"
     obj_path = work_dir / "model.obj"
     glb_path = work_dir / "model.glb"
+    usdz_path = work_dir / "model.usdz"
     return templates.TemplateResponse(
         request, "conversion_result.html",
         {
@@ -110,6 +113,7 @@ def convert_image(
             "processed_url": f"{base_url}/processed.png",
             "obj_url": f"{base_url}/model.obj" if obj_path.is_file() else None,
             "glb_url": f"{base_url}/model.glb" if glb_path.is_file() else None,
+            "usdz_url": f"{base_url}/model.usdz" if usdz_path.is_file() else None,
         },
     )
 
@@ -158,12 +162,14 @@ def create_product(
         "price": price,
     }
     try:
+        usdz_path = work_dir / "model.usdz"
         outcome = save_product(
             conversion_id=conversion_id,
             product=product,
             image_path=images[0],
             obj_path=work_dir / "model.obj",
             glb_path=work_dir / "model.glb",
+            usdz_path=usdz_path if usdz_path.is_file() else None,
             table_name=table_name,
         )
     except SupabaseNotConfigured as exc:
