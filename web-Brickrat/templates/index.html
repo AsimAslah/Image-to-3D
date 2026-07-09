@@ -4,9 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>TripoSR Product Studio</title>
+  <link rel="manifest" href="{{ url_for('static', path='/manifest.json') }}">
+  <meta name="theme-color" content="#11100e">
   <link rel="stylesheet" href="{{ url_for('static', path='/styles.css') }}">
   <script src="https://unpkg.com/htmx.org@2.0.4"></script>
   <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+  <script type="module" src="{{ url_for('static', path='/obj-preview.js') }}"></script>
 </head>
 <body>
   <main class="shell">
@@ -19,26 +22,34 @@
           <label>Category<input name="category" required placeholder="Furniture"></label>
           <label>Sub-category<input name="subcategory" required placeholder="Chairs"></label>
           <label>Price<input name="price" type="number" min="0" step="0.01" placeholder="249.00"></label>
+          <label>Supabase table<input name="table_name" required value="products" placeholder="products" pattern="[A-Za-z_][A-Za-z0-9_]{0,62}" title="Letters, numbers, and underscores only; cannot start with a number."></label>
         </div>
-        <label>Description<textarea name="description" rows="3" placeholder="Materials, dimensions, finish…"></textarea></label>
+        <label>Description<textarea name="description" rows="3" placeholder="Materials, dimensions, finish..."></textarea></label>
       </section>
       <section class="divider">
         <h2>Create the 3D model</h2>
         <div id="conversion-result" class="result muted">Upload an image, then convert it to unlock saving.</div>
       </section>
       <button id="save-button" class="primary" type="submit" disabled>Save to Supabase</button>
-      <div id="save-result"></div>
+      <div id="save-result" aria-live="polite"></div>
     </form>
-    <form class="card upload" hx-post="/convert" hx-target="#conversion-result" hx-swap="innerHTML" hx-encoding="multipart/form-data" hx-indicator="#busy">
-      <label>Product image<input name="image" type="file" accept="image/png,image/jpeg,image/webp" required></label>
+    <form id="conversion-form" class="card upload" hx-post="/convert" hx-target="#conversion-result" hx-swap="innerHTML" hx-encoding="multipart/form-data">
+      <label>Product image<input id="image-input" name="image" type="file" accept="image/png,image/jpeg,image/webp" required></label>
       <div class="options">
         <label class="check"><input name="remove_background" type="checkbox" value="true" checked> Remove background</label>
+        <label class="check"><input name="preserve_details" type="checkbox" value="true" checked> Preserve thin details</label>
         <label>Foreground ratio<input name="foreground_ratio" type="number" value="0.85" min="0.5" max="1" step="0.05"></label>
-        <label>Resolution<select name="resolution"><option>128</option><option selected>256</option><option>320</option></select></label>
+        <label>Resolution<select name="resolution"><option>128</option><option>256</option><option selected>320</option></select></label>
+        <label>Geometry threshold<input name="density_threshold" type="number" value="20" min="10" max="40" step="1"></label>
       </div>
-      <button class="secondary" type="submit">Convert to 3D</button>
-      <span id="busy" class="htmx-indicator">Generating—this can take a few minutes…</span>
+      <p class="tip">Quality preset: use a clear three-quarter photo, background removal, thin-detail preservation, resolution 320, and threshold 20. Lower thresholds may recover thin legs but can make surfaces thicker.</p>
+      <button id="convert-button" class="secondary" type="submit">Convert to 3D</button>
+      <div id="conversion-progress" class="progress-panel" hidden role="status" aria-live="polite">
+        <div class="progress-copy"><span id="progress-status">Uploading image...</span><strong id="progress-percent">0%</strong></div>
+        <progress id="progress-bar" max="100" value="0">0%</progress>
+      </div>
     </form>
   </main>
+  <script src="{{ url_for('static', path='/app.js') }}"></script>
 </body>
 </html>

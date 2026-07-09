@@ -7,10 +7,17 @@ create table if not exists public.products (
   description text not null default '',
   price numeric(12, 2),
   image_url text not null,
+  image_sha256 text not null,
   obj_url text not null,
   model_url text not null,
   created_at timestamptz not null default now()
 );
+
+-- Run these migration statements too when the products table already exists.
+alter table public.products add column if not exists image_sha256 text;
+create unique index if not exists products_image_sha256_key
+  on public.products (image_sha256)
+  where image_sha256 is not null;
 
 alter table public.products enable row level security;
 

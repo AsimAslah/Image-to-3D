@@ -2,10 +2,48 @@
   <p class="error">{{ error }}</p>
 {% else %}
   <input type="hidden" name="conversion_id" value="{{ conversion_id }}" form="product-form">
-  <div class="preview-grid">
-    <img src="{{ image_url }}" alt="Uploaded product">
-    <model-viewer src="{{ glb_url }}" camera-controls auto-rotate shadow-intensity="1" alt="Generated 3D product"></model-viewer>
+  <div class="image-preview-grid">
+    <div class="source-preview"><h3>Source image</h3><img src="{{ image_url }}" alt="Uploaded product"></div>
+    <div class="source-preview"><h3>Processed model input</h3><img src="{{ processed_url }}" alt="Background-removed model input"></div>
   </div>
-  <p class="success">3D model ready. <a href="{{ obj_url }}" download>Download OBJ</a> · <a href="{{ glb_url }}" download>Download GLB</a></p>
+  <div class="model-preview-grid">
+    <article class="model-card">
+      <h3>OBJ preview</h3>
+      {% if obj_url %}
+      <div class="obj-preview" data-obj-url="{{ obj_url }}" aria-label="OBJ model preview">
+        <span>Loading OBJ preview...</span>
+      </div>
+      <a href="{{ obj_url }}" download>Download OBJ</a>
+      {% else %}
+      <p class="error">OBJ file not available for preview.</p>
+      {% endif %}
+    </article>
+    <article class="model-card ar-preview-section">
+      <h3>AR Preview</h3>
+      {% if glb_url %}
+      <model-viewer
+        class="ar-model-viewer"
+        src="{{ glb_url }}"
+        alt="Generated furniture 3D model"
+        ar
+        ar-modes="webxr scene-viewer quick-look"
+        camera-controls
+        auto-rotate
+        shadow-intensity="1"
+        exposure="1.1"
+        field-of-view="35deg">
+        {# Optional future iOS support: add ios-src="{{ usdz_url }}" after USDZ generation exists. #}
+        <div slot="poster" class="model-loading">Loading GLB preview...</div>
+        <button slot="ar-button" class="ar-button" type="button">View in AR</button>
+      </model-viewer>
+      <p class="model-error" hidden>GLB model failed to load. Try downloading the GLB or converting again.</p>
+      <p class="ar-note">AR works best on supported mobile devices with HTTPS.</p>
+      <a href="{{ glb_url }}" download>Download GLB</a>
+      {% else %}
+      <p class="error">GLB file not available for AR preview.</p>
+      {% endif %}
+    </article>
+  </div>
+  <p class="success">Both 3D formats are ready.</p>
   <script>document.getElementById('save-button').disabled = false;</script>
 {% endif %}

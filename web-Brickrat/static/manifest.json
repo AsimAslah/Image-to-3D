@@ -1,0 +1,10 @@
+{
+  "name": "TripoSR Product Studio",
+  "short_name": "Product Studio",
+  "description": "Create furniture OBJ and GLB models with AR-ready GLB previews.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#11100e",
+  "theme_color": "#11100e",
+  "icons": []
+}
