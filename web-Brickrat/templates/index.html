@@ -31,6 +31,131 @@
 
     <div id="toast-area" class="toast-area" aria-live="polite" aria-atomic="true"></div>
 
+    <section id="model-library" class="panel model-library" aria-labelledby="model-library-heading">
+      <div class="library-heading">
+        <div>
+          <span class="eyebrow">Supabase collection</span>
+          <h2 id="model-library-heading">Model Library</h2>
+          <p>Open a saved model instantly in the existing 3D viewer or on a supported AR device.</p>
+        </div>
+        <span id="model-library-count" class="library-count" hidden></span>
+      </div>
+
+      <div class="library-controls" role="search">
+        <label>
+          Search saved models
+          <input id="model-library-search" type="search" placeholder="Search by model name" autocomplete="off">
+        </label>
+        <label id="model-library-category-wrap" hidden>
+          Category
+          <select id="model-library-category">
+            <option value="">All categories</option>
+          </select>
+        </label>
+      </div>
+
+      <p id="model-library-status" class="library-status" role="status" aria-live="polite">Loading saved models...</p>
+      <div id="model-library-skeletons" class="model-card-grid" aria-hidden="true">
+        {% for _ in range(3) %}
+        <div class="model-card model-card-skeleton">
+          <span class="skeleton skeleton-image"></span>
+          <span class="skeleton skeleton-line skeleton-line-title"></span>
+          <span class="skeleton skeleton-line"></span>
+          <span class="skeleton skeleton-line skeleton-line-short"></span>
+        </div>
+        {% endfor %}
+      </div>
+      <div id="model-library-grid" class="model-card-grid" hidden></div>
+      <div id="model-library-empty" class="empty-state library-state" hidden>
+        <strong>No saved models yet</strong>
+        <span>Convert and save a model to Supabase, then it will appear here.</span>
+      </div>
+      <div id="model-library-no-results" class="empty-state library-state" hidden>
+        <strong>No matching models</strong>
+        <span>Try another name or category.</span>
+      </div>
+      <div id="model-library-error" class="empty-state library-state library-error-state" hidden role="alert">
+        <strong>Saved models could not be loaded</strong>
+        <span data-library-error-message>Please check the connection and try again.</span>
+        <button id="model-library-retry" class="button outline" type="button">Try again</button>
+      </div>
+
+      <template id="model-card-template">
+        <article class="model-card">
+          <div class="model-card-media">
+            <img class="model-card-image" alt="" loading="lazy" decoding="async">
+            <div class="model-card-image-fallback" hidden aria-hidden="true">
+              <span>3D</span>
+              <small>No thumbnail</small>
+            </div>
+            <span class="model-card-category" hidden></span>
+          </div>
+          <div class="model-card-body">
+            <div class="model-card-title-row">
+              <h3 class="model-card-name"></h3>
+              <span class="model-card-price" hidden></span>
+            </div>
+            <p class="model-card-description" hidden></p>
+            <p class="model-card-formats"></p>
+            <div class="model-card-actions">
+              <button class="button primary preview-trigger library-view-3d" type="button">View in 3D</button>
+              <button class="button outline library-ar-action" type="button">View in AR</button>
+              <a class="button outline library-ios-ar-action" rel="ar" href="#" hidden>
+                <img src="{{ url_for('static', path='/icons/icon-192.png') }}" alt="" aria-hidden="true">
+                <span>View in AR</span>
+              </a>
+              <button class="button outline library-details-action" type="button" aria-expanded="false">View Details</button>
+            </div>
+            <p class="model-card-status" role="status" aria-live="polite"></p>
+            <div class="model-card-details" hidden>
+              <dl>
+                <div data-detail-category hidden><dt>Category</dt><dd></dd></div>
+                <div data-detail-dimensions hidden><dt>Dimensions</dt><dd></dd></div>
+                <div data-detail-created hidden><dt>Saved</dt><dd></dd></div>
+              </dl>
+              <a class="model-card-obj-link" href="#" hidden>Download OBJ</a>
+            </div>
+          </div>
+        </article>
+      </template>
+
+      <section id="model-library-preview" class="preview-card library-preview" data-preview-card hidden
+               aria-labelledby="model-library-preview-heading">
+        <div class="preview-heading">
+          <div>
+            <span class="eyebrow">Saved model preview</span>
+            <h3 id="model-library-preview-heading" data-preview-heading>3D Preview</h3>
+          </div>
+          <button class="button outline unload-preview" type="button">Close preview</button>
+        </div>
+        <div class="preview-status" data-preview-status role="status" aria-live="polite">
+          <span class="spinner" aria-hidden="true"></span>
+          <span data-preview-message>Preparing preview...</span>
+        </div>
+        <div class="preview-progress" data-preview-progress hidden>
+          <progress max="100" aria-label="Model download progress"></progress>
+        </div>
+        <div class="preview-surface" data-preview-surface hidden aria-label="Interactive saved 3D model preview"></div>
+        <div class="preview-error" data-preview-error hidden role="alert">
+          <p data-preview-error-message>Preview could not be loaded.</p>
+          <div class="button-row">
+            <button class="button primary retry-preview" type="button">Retry preview</button>
+            <a class="button outline preview-error-download" href="#">Open model file</a>
+          </div>
+        </div>
+        <details class="preview-diagnostics">
+          <summary>View technical details</summary>
+          <dl>
+            <div><dt>File type</dt><dd data-diagnostic-type>Not loaded</dd></div>
+            <div><dt>File size</dt><dd data-diagnostic-size>Not reported</dd></div>
+            <div><dt>Stage</dt><dd data-diagnostic-stage>Idle</dd></div>
+            <div><dt>HTTP status</dt><dd data-diagnostic-http>Not requested</dd></div>
+            <div><dt>Details</dt><dd data-diagnostic-detail>None</dd></div>
+          </dl>
+        </details>
+      </section>
+    </section>
+
     <section class="panel">
       <div class="section-heading">
         <span class="step">01</span>
@@ -59,20 +184,27 @@
           <p>Use a clear front or three-quarter furniture image for the best geometry.</p>
         </div>
       </div>
-      <form id="conversion-form" class="upload-flow" hx-post="/convert" hx-target="#conversion-result" hx-swap="innerHTML" hx-encoding="multipart/form-data">
+      <form id="conversion-form" class="upload-flow" action="/convert" method="post" enctype="multipart/form-data">
         <label class="file-drop">Upload image<input id="image-input" name="image" type="file" accept="image/png,image/jpeg,image/webp" required></label>
         <div class="option-grid">
-          <label class="check"><input name="remove_background" type="checkbox" value="true" checked> Remove background</label>
-          <label class="check"><input name="preserve_details" type="checkbox" value="true" checked> Preserve thin details</label>
+          <label class="check"><input name="remove_background" type="hidden" value="false"><input name="remove_background" type="checkbox" value="true" checked> Remove background</label>
+          <label class="check"><input name="preserve_details" type="checkbox" value="true"> Preserve thin details <small>Slower</small></label>
+          <label class="check"><input name="quality_mode" type="hidden" value="false"><input id="quality-mode" name="quality_mode" type="checkbox" value="true"> Compare 3 quality variants <small>About 3&times; more export work</small></label>
           <label>Foreground ratio<input name="foreground_ratio" type="number" value="0.85" min="0.5" max="1" step="0.05"></label>
-          <label>Resolution<select name="resolution"><option>128</option><option>256</option><option selected>320</option></select></label>
-          <label>Geometry threshold<input name="density_threshold" type="number" value="20" min="10" max="40" step="1"></label>
+          <label>Resolution<select name="resolution"><option>128</option><option selected>256</option><option>320</option></select></label>
+          <label>Single-mode threshold<input name="density_threshold" type="number" value="20" min="10" max="40" step="1"></label>
         </div>
         <div class="button-row">
           <button id="convert-button" class="button primary" type="submit">Convert to 3D</button>
         </div>
         <div id="conversion-progress" class="progress-panel" hidden role="status" aria-live="polite">
-          <div class="progress-copy"><span id="progress-status">Converting image to 3D...</span><strong id="progress-percent" hidden>0%</strong></div>
+          <div class="progress-copy">
+            <span class="progress-stage-copy">
+              <span id="progress-status">Converting image to 3D...</span>
+              <small id="progress-elapsed">Elapsed 0s</small>
+            </span>
+            <strong id="progress-percent">0%</strong>
+          </div>
           <progress id="progress-bar" max="100">Converting image to 3D...</progress>
         </div>
       </form>
@@ -82,8 +214,8 @@
       <div class="section-heading">
         <span class="step">03</span>
         <div>
-          <h2>3D preview, downloads, and AR</h2>
-          <p>Preview GLB and OBJ, download model files, then open AR on supported mobile devices.</p>
+          <h2>Dimensions, preview, downloads, and AR</h2>
+          <p>Apply measured furniture dimensions, check room fit, preview the model, and then open AR.</p>
         </div>
       </div>
       <div id="conversion-result" class="result empty-state">Upload an image, then convert it to unlock previews, downloads, AR, and saving.</div>
@@ -104,6 +236,7 @@
     </section>
   </main>
   <script>window.APP_VERSION = {{ asset_version | tojson }};</script>
+  <script src="{{ url_for('static', path='/dimensions.js') }}?v={{ asset_version }}"></script>
   <script src="{{ url_for('static', path='/app.js') }}?v={{ asset_version }}"></script>
 </body>
 </html>

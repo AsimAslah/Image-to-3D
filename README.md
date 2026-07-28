@@ -7,6 +7,15 @@ furniture metadata, uploading an image, converting it to OBJ and GLB with
 TripoSR, previewing the GLB, and saving the product and public asset URLs to
 Supabase.
 
+The FastAPI studio also requires measured real-world width, height, and depth
+before saving or AR. It rebuilds metric GLB/OBJ/USDZ assets from the untouched
+generated model, supports uniform or exact-axis scaling, records dimensional
+metadata in Supabase, accepts manual room/placement dimensions, performs
+two-orientation furniture-fit checks, and exposes capability-gated WebXR
+two-point/corner measurement on supported browsers. Apple RoomPlan is documented
+as a future native iOS/App Clip integration because Safari/PWAs do not expose
+that native framework.
+
 1. Change directory: `cd web-Brickrat`
 2. Install the dependencies: `pip install -r requirements.txt`
 3. Copy `.env.example` to `.env` and set the Supabase values.

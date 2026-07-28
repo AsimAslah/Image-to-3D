@@ -2,9 +2,12 @@ import os
 import re
 import hashlib
 import logging
+import math
 from dataclasses import dataclass
+from datetime import datetime
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 from uuid import UUID
 
 
@@ -16,6 +19,14 @@ TABLE_NAME_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,62}$")
 PRODUCT_FIELDS = {
     "name", "category", "subcategory", "description", "price", "image_url",
     "image_sha256", "obj_url", "model_url", "usdz_url",
+    "width", "height", "depth", "original_unit", "width_m", "height_m",
+    "depth_m", "scaling_mode", "applied_scale_factors", "axis_mapping",
+    "model_orientation", "final_dimensions_m", "room_dimensions", "fit_result",
+}
+MODEL_ASSET_SUFFIXES = {
+    "model_url": ".glb",
+    "usdz_url": ".usdz",
+    "obj_url": ".obj",
 }
 LOGGER = logging.getLogger("furniture_ar.supabase")
 
@@ -49,6 +60,123 @@ def _client():
         )
     from supabase import create_client
     return create_client(url, key)
+
+
+def configured_products_table() -> str:
+    """Resolve the server-controlled table used by the saved-model library."""
+    return validate_table_name(os.getenv("SUPABASE_PRODUCTS_TABLE", "products"))
+
+
+def _clean_text(value, *, fallback: str | None = None, limit: int = 2000) -> str | None:
+    if value is None:
+        return fallback
+    text = str(value).strip()
+    return text[:limit] if text else fallback
+
+
+def _clean_number(value, *, positive: bool = False) -> float | None:
+    if value in (None, "") or isinstance(value, bool):
+        return None
+    try:
+        number = float(Decimal(str(value)))
+    except (InvalidOperation, TypeError, ValueError):
+        return None
+    if not math.isfinite(number) or (positive and number <= 0):
+        return None
+    return number
+
+
+def _clean_created_at(value) -> str | None:
+    text = _clean_text(value, limit=64)
+    if text is None:
+        return None
+    try:
+        datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return text
+
+
+def _clean_public_url(value, *, suffix: str | None = None) -> str | None:
+    text = _clean_text(value, limit=2048)
+    if text is None:
+        return None
+    parsed = urlparse(text)
+    if (
+        parsed.scheme not in {"http", "https"}
+        or not parsed.hostname
+        or parsed.username is not None
+        or parsed.password is not None
+    ):
+        return None
+    if suffix is not None and not unquote(parsed.path).lower().endswith(suffix):
+        return None
+    return text
+
+
+def _clean_dimensions(row: dict) -> dict | None:
+    width = _clean_number(row.get("width"), positive=True)
+    height = _clean_number(row.get("height"), positive=True)
+    depth = _clean_number(row.get("depth"), positive=True)
+    unit = _clean_text(row.get("original_unit"), limit=12)
+    if unit not in {"cm", "mm", "m", "in", "ft"}:
+        unit = None
+
+    if None in (width, height, depth) or unit is None:
+        final = row.get("final_dimensions_m")
+        if not isinstance(final, dict):
+            return None
+        width = _clean_number(final.get("width_m"), positive=True)
+        height = _clean_number(final.get("height_m"), positive=True)
+        depth = _clean_number(final.get("depth_m"), positive=True)
+        unit = "m"
+
+    if None in (width, height, depth):
+        return None
+    return {"width": width, "height": height, "depth": depth, "unit": unit}
+
+
+def sanitize_model_record(row: dict) -> dict:
+    """Return the only product fields the public model-library API may expose."""
+    model_id = _clean_text(row.get("id"), limit=128)
+    price = _clean_number(row.get("price"))
+    if price is not None and price < 0:
+        price = None
+    assets = {
+        output_name: _clean_public_url(row.get(source_name), suffix=suffix)
+        for output_name, source_name, suffix in (
+            ("glb_url", "model_url", MODEL_ASSET_SUFFIXES["model_url"]),
+            ("usdz_url", "usdz_url", MODEL_ASSET_SUFFIXES["usdz_url"]),
+            ("obj_url", "obj_url", MODEL_ASSET_SUFFIXES["obj_url"]),
+        )
+    }
+    for output_name, source_name in (
+        ("thumbnail_url", "image_url"),
+    ):
+        assets[output_name] = _clean_public_url(row.get(source_name))
+
+    return {
+        "id": model_id,
+        "name": _clean_text(row.get("name"), fallback="Untitled model", limit=160),
+        "category": _clean_text(row.get("category"), limit=100),
+        "description": _clean_text(row.get("description"), limit=2000),
+        "price": price,
+        "dimensions": _clean_dimensions(row),
+        "created_at": _clean_created_at(row.get("created_at")),
+        **assets,
+    }
+
+
+def list_models(*, limit: int = 200) -> list[dict]:
+    """Read and sanitize saved products without accepting a frontend table name."""
+    if not isinstance(limit, int) or not 1 <= limit <= 500:
+        raise ValueError("Model library limit must be between 1 and 500.")
+    table_name = configured_products_table()
+    result = _client().table(table_name).select("*").limit(limit).execute()
+    rows = result.data if isinstance(result.data, list) else []
+    models = [sanitize_model_record(row) for row in rows if isinstance(row, dict)]
+    models.sort(key=lambda model: model.get("created_at") or "", reverse=True)
+    return models
 
 
 def save_product(*, conversion_id: UUID, product: dict, image_path: Path,

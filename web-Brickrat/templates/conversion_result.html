@@ -2,6 +2,7 @@
   <div class="notice notice-error" role="alert">
     <span>{{ error }}</span>
     {% if error_code %}<code>{{ error_code }}</code>{% endif %}
+    {% if error_reference %}<code>Reference: {{ error_reference }}</code>{% endif %}
   </div>
 {% else %}
   <input type="hidden" name="conversion_id" value="{{ conversion_id }}" form="product-form">
@@ -12,15 +13,234 @@
       <div class="summary-copy">
         <span class="eyebrow">Conversion complete</span>
         <h3 id="conversion-success-title">Your furniture model is ready</h3>
-        <p>Choose a preview only when you need it. No 3D file has been downloaded by this page yet.</p>
+        <p>{% if quality_candidates %}Compare the variants and select the geometry that best preserves the furniture.{% else %}Choose a preview only when you need it. No 3D file has been downloaded by this page yet.{% endif %}</p>
       </div>
       <img class="summary-image" src="{{ processed_url }}" alt="Converted furniture product">
+    </section>
+
+    {% if quality_candidates %}
+    <section class="quality-chooser" aria-labelledby="quality-chooser-heading">
+      <div class="quality-heading">
+        <div>
+          <span class="eyebrow">Quality comparison</span>
+          <h3 id="quality-chooser-heading">Choose the best geometry</h3>
+          <p>Preview each variant from different angles. The selected variant is used for downloads, AR, and Supabase.</p>
+        </div>
+        <span class="quality-resolution">320&sup3; extraction</span>
+      </div>
+      <div class="quality-grid">
+        {% for candidate in quality_candidates %}
+        <article class="quality-option {{ 'is-selected' if candidate.selected else '' }}">
+          <div class="quality-option-heading">
+            <div>
+              <span class="quality-threshold">Threshold {{ candidate.threshold_display }}</span>
+              <h3>{{ candidate.label }}</h3>
+            </div>
+            {% if candidate.selected %}<span class="selected-badge">Selected</span>{% endif %}
+          </div>
+          <p>{{ candidate.description }}</p>
+          <small>{{ candidate.glb_file.display }} GLB</small>
+          <div class="quality-actions">
+            <button class="button outline preview-trigger" type="button" data-preview-type="glb"
+                    data-preview-url="{{ candidate.preview_url }}" data-download-url="{{ candidate.download_url }}"
+                    data-file-size="{{ candidate.glb_file.bytes }}">Preview variant</button>
+            <form hx-post="/conversions/{{ conversion_id }}/candidate" hx-target="#conversion-result" hx-swap="innerHTML">
+              <input type="hidden" name="threshold" value="{{ candidate.threshold_display }}">
+              <button class="button {{ 'secondary' if candidate.selected else 'primary' }}" type="submit" {% if candidate.selected %}disabled{% endif %}>
+                {{ 'Currently selected' if candidate.selected else 'Use this variant' }}
+              </button>
+            </form>
+          </div>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+
+    <section class="dimensions-workspace"
+             data-dimensions-ui
+             data-conversion-id="{{ conversion_id }}"
+             data-dimensions-applied="{{ 'true' if dimensions_applied else 'false' }}"
+             data-final-width-m="{{ dimension_state.final_dimensions_m.width_m if dimension_state else '' }}"
+             data-final-height-m="{{ dimension_state.final_dimensions_m.height_m if dimension_state else '' }}"
+             data-final-depth-m="{{ dimension_state.final_dimensions_m.depth_m if dimension_state else '' }}"
+             aria-labelledby="dimensions-heading">
+      <div class="dimensions-heading">
+        <div>
+          <span class="eyebrow">Real-world scale</span>
+          <h3 id="dimensions-heading">Dimensions</h3>
+          <p>A single photo has no reliable physical scale. Enter measurements from the real furniture before saving or AR.</p>
+        </div>
+        <span class="dimension-state {{ 'is-applied' if dimensions_applied else '' }}">
+          {{ 'Metric scale applied' if dimensions_applied else 'Real dimensions required' }}
+        </span>
+      </div>
+
+      {% if dimension_notice %}<p class="notice notice-success">{{ dimension_notice }}</p>{% endif %}
+      {% if dimension_error %}<p class="notice notice-error" role="alert">{{ dimension_error }}</p>{% endif %}
+
+      <div class="dimension-section-grid">
+        <section class="dimension-card" aria-labelledby="model-dimensions-heading">
+          <h4 id="model-dimensions-heading">Model Dimensions</h4>
+          <form id="dimensions-form"
+                hx-post="/conversions/{{ conversion_id }}/dimensions"
+                hx-target="#conversion-result"
+                hx-swap="innerHTML">
+            <div class="dimension-input-grid">
+              <label>Width (X)
+                <input name="width" type="number" min="0.000001" step="any" inputmode="decimal"
+                       value="{{ dimension_state.requested.width if dimension_state else '' }}"
+                       placeholder="120" required>
+              </label>
+              <label>Height (Y)
+                <input name="height" type="number" min="0.000001" step="any" inputmode="decimal"
+                       value="{{ dimension_state.requested.height if dimension_state else '' }}"
+                       placeholder="85" required>
+              </label>
+              <label>Depth (Z)
+                <input name="depth" type="number" min="0.000001" step="any" inputmode="decimal"
+                       value="{{ dimension_state.requested.depth if dimension_state else '' }}"
+                       placeholder="75" required>
+              </label>
+              <label>Unit
+                {% set selected_unit = dimension_state.requested.unit if dimension_state else 'cm' %}
+                <select name="unit" required>
+                  <option value="cm" {{ 'selected' if selected_unit == 'cm' else '' }}>centimetres</option>
+                  <option value="mm" {{ 'selected' if selected_unit == 'mm' else '' }}>millimetres</option>
+                  <option value="m" {{ 'selected' if selected_unit == 'm' else '' }}>metres</option>
+                  <option value="in" {{ 'selected' if selected_unit == 'in' else '' }}>inches</option>
+                  <option value="ft" {{ 'selected' if selected_unit == 'ft' else '' }}>feet</option>
+                </select>
+              </label>
+            </div>
+
+            <fieldset class="scaling-mode">
+              <legend>Scaling Mode</legend>
+              {% set selected_mode = dimension_state.requested.scaling_mode if dimension_state else 'preserve' %}
+              <label class="radio-card">
+                <input name="scaling_mode" type="radio" value="preserve"
+                       {{ 'checked' if selected_mode == 'preserve' else '' }}>
+                <span><strong>Preserve proportions</strong>Use one scale factor so the model fits inside all entered limits.</span>
+              </label>
+              <label class="radio-card">
+                <input name="scaling_mode" type="radio" value="exact"
+                       {{ 'checked' if selected_mode == 'exact' else '' }}>
+                <span><strong>Exact dimensions</strong>Match X, Y, and Z separately. This can visibly distort the model.</span>
+              </label>
+            </fieldset>
+
+            <p class="axis-note"><strong>Axis mapping:</strong> X = width, Y = height, Z = depth. GLB and USDZ use metres and Y-up orientation.</p>
+            <div class="button-row">
+              <button class="button primary" type="submit">
+                {{ 'Update exported dimensions' if dimensions_applied else 'Apply real dimensions' }}
+              </button>
+              {% if dimensions_applied %}
+              <button class="button outline" type="button"
+                      hx-post="/conversions/{{ conversion_id }}/dimensions/reset"
+                      hx-target="#conversion-result"
+                      hx-swap="innerHTML">Reset to original scale</button>
+              {% endif %}
+            </div>
+          </form>
+        </section>
+
+        <section class="dimension-card final-dimensions" aria-labelledby="final-dimensions-heading">
+          <h4 id="final-dimensions-heading">Final Dimensions</h4>
+          {% if dimension_state %}
+          <dl class="dimension-values">
+            <div><dt>Width (X)</dt><dd>{{ '%.4f'|format(dimension_state.final_dimensions_m.width_m) }} m</dd></div>
+            <div><dt>Height (Y)</dt><dd>{{ '%.4f'|format(dimension_state.final_dimensions_m.height_m) }} m</dd></div>
+            <div><dt>Depth (Z)</dt><dd>{{ '%.4f'|format(dimension_state.final_dimensions_m.depth_m) }} m</dd></div>
+          </dl>
+          <p class="scale-factors">
+            Scale factors:
+            X {{ '%.6g'|format(dimension_state.scale_factors.x) }},
+            Y {{ '%.6g'|format(dimension_state.scale_factors.y) }},
+            Z {{ '%.6g'|format(dimension_state.scale_factors.z) }}
+          </p>
+          {% if dimension_state.warning %}<p class="notice notice-error">{{ dimension_state.warning }}</p>{% endif %}
+          {% if dimension_state.requested.scaling_mode == 'preserve' %}
+          <p class="notice notice-info">Uniform scaling preserves the source aspect ratio, so one or two final values may be smaller than the entered limits.</p>
+          {% endif %}
+          {% else %}
+          <div class="empty-state compact">Apply measurements to verify the final exported size.</div>
+          {% endif %}
+        </section>
+
+        <section class="dimension-card" aria-labelledby="room-dimensions-heading">
+          <h4 id="room-dimensions-heading">Room Dimensions</h4>
+          <p>Enter measurements manually, or use supported WebXR hit testing below. You can review and edit every value.</p>
+          <div class="dimension-input-grid room-input-grid">
+            <label>Room width
+              <input name="room_width" form="product-form" type="number" min="0.000001" step="any"
+                     inputmode="decimal" data-room-field="width" placeholder="4.2">
+            </label>
+            <label>Room length
+              <input name="room_length" form="product-form" type="number" min="0.000001" step="any"
+                     inputmode="decimal" data-room-field="length" placeholder="5.0">
+            </label>
+            <label>Room height
+              <input name="room_height" form="product-form" type="number" min="0.000001" step="any"
+                     inputmode="decimal" data-room-field="height" placeholder="2.7">
+            </label>
+            <label>Room unit
+              <select name="room_unit" form="product-form" data-room-field="unit">
+                <option value="m" selected>metres</option>
+                <option value="cm">centimetres</option>
+                <option value="mm">millimetres</option>
+                <option value="in">inches</option>
+                <option value="ft">feet</option>
+              </select>
+            </label>
+            <label>Placement-area width <small>optional</small>
+              <input name="placement_width" form="product-form" type="number" min="0.000001" step="any"
+                     inputmode="decimal" data-room-field="placement_width" placeholder="2.0">
+            </label>
+            <label>Placement-area depth <small>optional</small>
+              <input name="placement_depth" form="product-form" type="number" min="0.000001" step="any"
+                     inputmode="decimal" data-room-field="placement_depth" placeholder="1.8">
+            </label>
+          </div>
+        </section>
+
+        <section class="dimension-card ar-measure-card" aria-labelledby="ar-measure-heading">
+          <h4 id="ar-measure-heading">AR Measure Room</h4>
+          <p data-ar-measure-support>Checking this browser for WebXR hit-test support...</p>
+          <div data-ar-measure-controls hidden>
+            <label>Measurement target
+              <select data-measure-target>
+                <option value="width">Room width</option>
+                <option value="length">Room length</option>
+                <option value="height">Room height</option>
+                <option value="placement_width">Placement-area width</option>
+                <option value="placement_depth">Placement-area depth</option>
+                <option value="corners">Room floor corners</option>
+              </select>
+            </label>
+            <button class="button primary" type="button" data-ar-measure-start>Start AR measurement</button>
+          </div>
+          <p class="platform-limit">
+            iPhone/iPad Safari uses Quick Look for model placement, but does not expose RoomPlan to this PWA.
+            Full LiDAR room capture requires a future native RoomPlan app or App Clip.
+          </p>
+        </section>
+
+        <section class="dimension-card fit-card" aria-labelledby="fit-heading">
+          <h4 id="fit-heading">Check Furniture Fit</h4>
+          <p>Checks both width &times; depth and the 90&deg;-rotated depth &times; width orientation.</p>
+          <button class="button secondary" type="button" data-fit-check
+                  {{ 'disabled' if not dimensions_applied else '' }}>Check Furniture Fit</button>
+          <div class="fit-result" data-fit-result aria-live="polite">
+            {% if not dimensions_applied %}Apply furniture dimensions first.{% else %}Enter room dimensions, then check fit.{% endif %}
+          </div>
+        </section>
+      </div>
     </section>
 
     <section class="file-summary" aria-label="Generated model files">
       <div class="file-status {{ 'is-ready' if glb_file else 'is-unavailable' }}">
         <span>GLB</span><strong>{{ glb_file.display if glb_file else 'Unavailable' }}</strong>
-        <small>{{ 'Validated, embedded assets' if glb_file else 'Validation failed' }}</small>
+        <small>{{ 'Validated, metric dimensions applied' if glb_file and dimensions_applied else ('Original generated scale' if glb_file else 'Validation failed') }}</small>
       </div>
       <div class="file-status {{ 'is-ready' if obj_file else 'is-unavailable' }}">
         <span>OBJ</span><strong>{{ obj_file.display if obj_file else 'Unavailable' }}</strong>
@@ -43,15 +263,20 @@
               data-preview-url="{{ obj_url }}" data-download-url="{{ obj_download_url }}"
               data-file-size="{{ obj_file.bytes }}">Load OBJ Preview</button>
       {% endif %}
-      <button class="button secondary" type="submit" form="product-form" {% if not glb_url %}disabled{% endif %}>Save to Supabase</button>
+      <button class="button secondary" type="submit" form="product-form" {% if not glb_url or not dimensions_applied %}disabled{% endif %}>Save to Supabase</button>
     </section>
 
     <section class="ar-card" aria-labelledby="ar-heading"
-             data-glb-url="{{ glb_url or '' }}" data-usdz-ready="{{ 'true' if usdz_url else 'false' }}">
+             data-glb-url="{{ glb_url or '' }}"
+             data-usdz-ready="{{ 'true' if usdz_url else 'false' }}"
+             data-dimensions-ready="{{ 'true' if dimensions_applied else 'false' }}">
       <div>
         <h3 id="ar-heading">View in your room</h3>
-        <p class="ar-status" role="status" aria-live="polite">Checking AR support on this device...</p>
+        <p class="ar-status" role="status" aria-live="polite">
+          {{ 'Checking AR support on this device...' if dimensions_applied else 'Apply real dimensions before opening AR.' }}
+        </p>
       </div>
+      {% if dimensions_applied %}
       {% if usdz_url %}
       <a class="button primary ios-ar-action" rel="ar" href="{{ usdz_url }}" hidden>
         <img src="{{ processed_url }}" alt="" aria-hidden="true">
@@ -60,6 +285,7 @@
       {% endif %}
       {% if glb_url %}
       <button class="button primary android-ar-action" type="button" data-model-url="{{ glb_url }}" hidden>View in AR on Android</button>
+      {% endif %}
       {% endif %}
       <span class="ar-unavailable" hidden>AR unavailable on this device</span>
     </section>
@@ -125,5 +351,5 @@
       {% if material_error %}<p class="notice notice-error">Material processing reported a failure. See the server log for diagnostics.</p>{% endif %}
     </details>
   </div>
-  <script>document.getElementById('save-button').disabled = {{ 'false' if glb_url else 'true' }};</script>
+  <script>document.getElementById('save-button').disabled = {{ 'false' if glb_url and dimensions_applied else 'true' }};</script>
 {% endif %}

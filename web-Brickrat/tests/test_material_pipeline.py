@@ -1,6 +1,7 @@
 import tempfile
 import unittest
 import sys
+import json
 from pathlib import Path
 from unittest.mock import patch
 
@@ -26,6 +27,66 @@ def tetrahedron(colors=None):
 
 
 class MaterialPipelineTests(unittest.TestCase):
+    def test_quality_candidates_share_one_neural_inference(self):
+        colors = np.array([
+            [220, 35, 35, 255], [35, 210, 60, 255],
+            [35, 60, 220, 255], [230, 190, 35, 255],
+        ], dtype=np.uint8)
+
+        class FakeModel:
+            def __init__(self):
+                self.inference_calls = 0
+                self.thresholds = []
+
+            def __call__(self, _image, *, device):
+                self.inference_calls += 1
+                return {"device": device}
+
+            def extract_mesh(self, _scene_codes, _has_vertex_color, *, resolution, threshold):
+                self.thresholds.append((resolution, threshold))
+                return [tetrahedron(colors)]
+
+        fake_model = FakeModel()
+        unavailable_usdz = {"valid": False, "error": "not configured"}
+        progress_updates = []
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = root / "source.png"
+            output = root / "output"
+            Image.new("RGBA", (32, 32), "white").save(source)
+            with (
+                patch.object(triposr, "_load"),
+                patch.object(triposr, "_model", fake_model),
+                patch.object(triposr, "_export_usdz", return_value=unavailable_usdz),
+            ):
+                triposr.convert(
+                    source, output,
+                    remove_bg=False,
+                    resolution=320,
+                    density_threshold=20,
+                    candidate_thresholds=(18, 20, 22),
+                    progress_callback=lambda percent, message: progress_updates.append(
+                        (percent, message)
+                    ),
+                )
+
+            manifest = json.loads(
+                (output / "candidate_manifest.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(fake_model.inference_calls, 1)
+            self.assertEqual(fake_model.thresholds, [(320, 18.0), (320, 20.0), (320, 22.0)])
+            self.assertEqual(
+                [percent for percent, _message in progress_updates],
+                sorted(percent for percent, _message in progress_updates),
+            )
+            self.assertIn((30, "Running image-to-3D neural inference..."), progress_updates)
+            self.assertEqual(progress_updates[-1][0], 97)
+            self.assertEqual(manifest["selected_threshold"], 20)
+            for threshold in (18, 20, 22):
+                candidate = output / "candidates" / f"threshold-{threshold}"
+                self.assertTrue((candidate / "model.obj").is_file())
+                self.assertTrue((candidate / "model.glb").is_file())
+
     def test_vertex_colours_become_embedded_texture(self):
         colors = np.array([
             [220, 35, 35, 255], [35, 210, 60, 255],

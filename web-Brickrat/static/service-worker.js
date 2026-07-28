@@ -5,6 +5,7 @@ const APP_SHELL = [
   "/",
   "/static/styles.css",
   "/static/app.js",
+  "/static/dimensions.js",
   "/manifest.webmanifest",
   OFFLINE_URL,
   "/static/icons/icon.svg",
@@ -77,6 +78,7 @@ self.addEventListener("fetch", (event) => {
   if (
     url.pathname.startsWith("/generated/")
     || url.pathname.startsWith("/models/")
+    || url.pathname.startsWith("/api/")
     || url.pathname.startsWith("/debug/")
     || url.pathname === "/service-worker.js"
   ) {

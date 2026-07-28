@@ -10,6 +10,7 @@ from pxr import Usd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from model_diagnostics import inspect_usdz
+from dimensions import read_usdz_dimensions_m
 from usdz_export import export_textured_mesh_to_usdz
 
 
@@ -50,6 +51,7 @@ class UsdzExportTests(unittest.TestCase):
             ).GetAttribute("inputs:file").Get()
             self.assertTrue(texture.resolvedPath)
             self.assertIn("model.usdz[baseColor.png]", texture.resolvedPath)
+            self.assertEqual(read_usdz_dimensions_m(path), (1.0, 1.0, 1.0))
 
 
 if __name__ == "__main__":

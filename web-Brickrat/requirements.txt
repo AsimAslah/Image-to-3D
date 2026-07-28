@@ -1,6 +1,8 @@
 omegaconf==2.3.0
+numpy>=1.24,<2
 Pillow==10.1.0
 einops==0.7.0
+# Install the CPU/CUDA-appropriate PyTorch build separately before conversion.
 # git+https://github.com/tatsy/torchmcubes.git
 transformers==4.36.2
 trimesh==4.0.5

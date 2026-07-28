@@ -104,6 +104,8 @@ outputs/
 generated/
 
 # Local model and inference artifacts
+/.benchmark_runtime/
+/benchmark_inputs/
 checkpoints/
 /models/
 *.ckpt
@@ -128,3 +130,5 @@ temp/
 # Accidental nested repository copies
 TripoSR/
 *.zip
+
+.venv-clean/

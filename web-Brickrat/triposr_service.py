@@ -8,11 +8,11 @@ import shutil
 import subprocess
 import sys
 import threading
+from contextlib import nullcontext
 from pathlib import Path
+from typing import Callable
 
 import numpy as np
-import rembg
-import torch
 import trimesh
 from PIL import Image, ImageOps
 from trimesh.exchange.obj import export_obj
@@ -26,10 +26,6 @@ PROJECT_DIR = Path(__file__).resolve().parent.parent
 if str(PROJECT_DIR) not in sys.path:
     sys.path.insert(0, str(PROJECT_DIR))
 
-from tsr.system import TSR
-from tsr.utils import remove_background, resize_foreground, to_gradio_3d_orientation
-
-
 LOGGER = logging.getLogger("furniture_ar.export")
 FURNITURE_ROUGHNESS = 0.78
 FURNITURE_METALLIC = 0.0
@@ -40,7 +36,9 @@ class TripoSRService:
     """Lazy, process-local wrapper around TripoSR and the portable export pipeline."""
 
     def __init__(self) -> None:
-        self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
+        self.device = "cpu"
+        self._torch = None
+        self._rembg = None
         self._model = None
         self._rembg_session = None
         self._load_lock = threading.Lock()
@@ -52,6 +50,19 @@ class TripoSRService:
         with self._load_lock:
             if self._model is not None:
                 return
+            try:
+                import rembg
+                import torch
+                from tsr.system import TSR
+            except ImportError as exc:
+                raise RuntimeError(
+                    "TripoSR conversion requires PyTorch, rembg, and the TripoSR "
+                    "runtime dependencies. Install PyTorch for your CPU/CUDA "
+                    "platform, then install requirements.txt."
+                ) from exc
+            self._torch = torch
+            self._rembg = rembg
+            self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
             self._model = TSR.from_pretrained(
                 "stabilityai/TripoSR",
                 config_name="config.yaml",
@@ -60,6 +71,56 @@ class TripoSRService:
             self._model.renderer.set_chunk_size(8192)
             self._model.to(self.device)
             self._rembg_session = rembg.new_session()
+
+    def _remove_background(self, image: Image.Image, **rembg_options) -> Image.Image:
+        if self._rembg is None:
+            raise RuntimeError("The background-removal runtime is not loaded.")
+        should_remove = not (
+            image.mode == "RGBA" and image.getextrema()[3][0] < 255
+        )
+        return (
+            self._rembg.remove(image, session=self._rembg_session, **rembg_options)
+            if should_remove else image
+        )
+
+    @staticmethod
+    def _resize_foreground(image: Image.Image, ratio: float) -> Image.Image:
+        pixels = np.asarray(image)
+        if pixels.ndim != 3 or pixels.shape[-1] != 4:
+            raise ValueError("Background removal must return an RGBA image.")
+        alpha = np.where(pixels[..., 3] > 0)
+        if not alpha[0].size or not alpha[1].size:
+            raise ValueError("Background removal produced an empty foreground.")
+        y1, y2 = int(alpha[0].min()), int(alpha[0].max()) + 1
+        x1, x2 = int(alpha[1].min()), int(alpha[1].max()) + 1
+        foreground = pixels[y1:y2, x1:x2]
+        size = max(foreground.shape[0], foreground.shape[1])
+        top, left = (size - foreground.shape[0]) // 2, (size - foreground.shape[1]) // 2
+        bottom = size - foreground.shape[0] - top
+        right = size - foreground.shape[1] - left
+        square = np.pad(
+            foreground,
+            ((top, bottom), (left, right), (0, 0)),
+            mode="constant",
+        )
+        target = max(size, int(size / ratio))
+        top, left = (target - size) // 2, (target - size) // 2
+        bottom, right = target - size - top, target - size - left
+        return Image.fromarray(np.pad(
+            square,
+            ((top, bottom), (left, right), (0, 0)),
+            mode="constant",
+        ))
+
+    @staticmethod
+    def _to_output_orientation(mesh: trimesh.Trimesh) -> trimesh.Trimesh:
+        mesh.apply_transform(
+            trimesh.transformations.rotation_matrix(-np.pi / 2, [1, 0, 0])
+        )
+        mesh.apply_transform(
+            trimesh.transformations.rotation_matrix(np.pi / 2, [0, 1, 0])
+        )
+        return mesh
 
     @staticmethod
     def _fill_background(image: Image.Image) -> Image.Image:
@@ -367,11 +428,24 @@ class TripoSRService:
         resolution: int = 256,
         preserve_details: bool = True,
         density_threshold: float = 20.0,
+        candidate_thresholds: tuple[float, ...] | None = None,
+        progress_callback: Callable[[int, str], None] | None = None,
     ) -> tuple[Path, Path]:
+        def emit_progress(percent: int, message: str) -> None:
+            if progress_callback is not None:
+                progress_callback(max(0, min(99, int(percent))), message)
+
+        emit_progress(10, "Loading the 3D generation model...")
         self._load()
+        emit_progress(16, "Preparing the product image...")
         source = ImageOps.exif_transpose(Image.open(image_path)).convert("RGBA")
         object_image = source
         if remove_bg:
+            emit_progress(
+                20,
+                "Removing the background with detail preservation..."
+                if preserve_details else "Removing the background...",
+            )
             rembg_options = {}
             if preserve_details:
                 rembg_options = {
@@ -380,70 +454,139 @@ class TripoSRService:
                     "alpha_matting_background_threshold": 10,
                     "alpha_matting_erode_size": 0,
                 }
-            object_image = remove_background(
-                source.convert("RGB"), self._rembg_session, **rembg_options,
+            object_image = self._remove_background(
+                source.convert("RGB"), **rembg_options,
             )
-            object_image = resize_foreground(object_image, foreground_ratio)
+            object_image = self._resize_foreground(object_image, foreground_ratio)
+        else:
+            emit_progress(24, "Preparing the image without background removal...")
         inference_image = self._fill_background(object_image)
 
         output_dir.mkdir(parents=True, exist_ok=True)
         inference_image.save(output_dir / "processed.png", optimize=True)
-        glb_path = output_dir / "model.glb"
-        usdz_path = output_dir / "model.usdz"
-        report_path = output_dir / "material_report.json"
-
-        with self._inference_lock, torch.no_grad():
+        emit_progress(30, "Running image-to-3D neural inference...")
+        no_grad = self._torch.no_grad() if self._torch is not None else nullcontext()
+        with self._inference_lock, no_grad:
             scene_codes = self._model(inference_image, device=self.device)
-            mesh = self._model.extract_mesh(
-                scene_codes,
-                True,
-                resolution=resolution,
-                threshold=density_threshold,
-            )[0]
-            mesh.remove_unreferenced_vertices()
-            mesh.fix_normals()
-            mesh = to_gradio_3d_orientation(mesh)
-            portable_mesh, report = self._prepare_portable_material(mesh, object_image)
-
-            obj_path, obj_resources = self._export_obj_bundle(portable_mesh, output_dir)
-            report["obj_resources"] = obj_resources
-            report["texture_files"] = [
-                item for item in obj_resources
-                if Path(item["filename"]).suffix.lower() in {".png", ".jpg", ".jpeg"}
-            ]
-            LOGGER.info(
-                "Material source uv=%s vertex_colors=%s materials=%s strategy=%s textures=%s",
-                report["source_has_uv"], report["source_has_vertex_colors"],
-                report["source_material_count"], report["material_strategy"],
-                report["texture_files"],
+            thresholds = (
+                sorted({float(value) for value in candidate_thresholds})
+                if candidate_thresholds else [float(density_threshold)]
             )
+            if not thresholds or len(thresholds) > 5 or any(not 10 <= value <= 40 for value in thresholds):
+                raise ValueError("Candidate geometry thresholds must contain 1-5 values between 10 and 40.")
 
-            portable_mesh.export(glb_path, file_type="glb")
-            glb_report = inspect_glb(glb_path)
-            report["glb_inspection"] = glb_report
-            LOGGER.info(
-                "GLB exported valid=%s size=%s embedded_images=%s uv=%s vertex_colors=%s",
-                glb_report["valid"], glb_report["file_size"],
-                glb_report.get("embedded_image_count"), glb_report.get("has_uv"),
-                glb_report.get("has_vertex_colors"),
-            )
-            if not glb_report["valid"]:
-                report["material_error"] = glb_report.get("error", "GLB validation failed.")
+            emit_progress(48, "Neural inference complete. Building model geometry...")
+            candidate_mode = candidate_thresholds is not None
+            results: dict[float, tuple[Path, Path]] = {}
+            manifest_candidates = []
+            candidate_span = 47.0 / len(thresholds)
+            for index, threshold in enumerate(thresholds):
+                progress_base = 48.0 + index * candidate_span
+                candidate_label = (
+                    f"quality variant {index + 1} of {len(thresholds)}"
+                    if candidate_mode else "3D model"
+                )
+                emit_progress(int(progress_base), f"Extracting geometry for {candidate_label}...")
+                threshold_name = f"{threshold:g}"
+                candidate_dir = (
+                    output_dir / "candidates" / f"threshold-{threshold_name}"
+                    if candidate_mode else output_dir
+                )
+                candidate_dir.mkdir(parents=True, exist_ok=True)
+                report_path = candidate_dir / "material_report.json"
+                glb_path = candidate_dir / "model.glb"
+                usdz_path = candidate_dir / "model.usdz"
+
+                mesh = self._model.extract_mesh(
+                    scene_codes,
+                    True,
+                    resolution=resolution,
+                    threshold=threshold,
+                )[0]
+                emit_progress(
+                    int(progress_base + candidate_span * 0.35),
+                    f"Cleaning geometry for {candidate_label}...",
+                )
+                mesh.remove_unreferenced_vertices()
+                mesh.fix_normals()
+                mesh = self._to_output_orientation(mesh)
+                portable_mesh, report = self._prepare_portable_material(mesh, object_image)
+
+                emit_progress(
+                    int(progress_base + candidate_span * 0.55),
+                    f"Exporting OBJ and textures for {candidate_label}...",
+                )
+                obj_path, obj_resources = self._export_obj_bundle(portable_mesh, candidate_dir)
+                report["geometry_threshold"] = threshold
+                report["mesh_resolution"] = resolution
+                report["obj_resources"] = obj_resources
+                report["texture_files"] = [
+                    item for item in obj_resources
+                    if Path(item["filename"]).suffix.lower() in {".png", ".jpg", ".jpeg"}
+                ]
+                LOGGER.info(
+                    "Candidate threshold=%s uv=%s vertex_colors=%s materials=%s strategy=%s textures=%s",
+                    threshold, report["source_has_uv"], report["source_has_vertex_colors"],
+                    report["source_material_count"], report["material_strategy"],
+                    report["texture_files"],
+                )
+
+                emit_progress(
+                    int(progress_base + candidate_span * 0.72),
+                    f"Exporting and validating GLB for {candidate_label}...",
+                )
+                portable_mesh.export(glb_path, file_type="glb")
+                glb_report = inspect_glb(glb_path)
+                report["glb_inspection"] = glb_report
+                LOGGER.info(
+                    "Candidate GLB threshold=%s valid=%s size=%s embedded_images=%s uv=%s vertex_colors=%s",
+                    threshold, glb_report["valid"], glb_report["file_size"],
+                    glb_report.get("embedded_image_count"), glb_report.get("has_uv"),
+                    glb_report.get("has_vertex_colors"),
+                )
+                if not glb_report["valid"]:
+                    report["material_error"] = glb_report.get("error", "GLB validation failed.")
+                    report_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
+                    raise RuntimeError(report["material_error"])
+
+                emit_progress(
+                    int(progress_base + candidate_span * 0.86),
+                    f"Creating iPhone AR file for {candidate_label}...",
+                )
+                usdz_report = self._export_usdz(glb_path, usdz_path, mesh=portable_mesh)
+                report["usdz_inspection"] = usdz_report
+                report["usdz_created"] = usdz_report["valid"]
+                if not usdz_report["valid"]:
+                    report["usdz_error"] = usdz_report.get("error", "USDZ validation failed.")
+                LOGGER.info(
+                    "Candidate USDZ threshold=%s valid=%s size=%s textures=%s converter=%s",
+                    threshold, usdz_report["valid"], usdz_report.get("file_size", 0),
+                    usdz_report.get("texture_files", []), usdz_report.get("converter"),
+                )
                 report_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
-                raise RuntimeError(report["material_error"])
+                results[threshold] = (obj_path, glb_path)
+                manifest_candidates.append({
+                    "threshold": threshold,
+                    "directory": f"candidates/threshold-{threshold_name}",
+                })
+                emit_progress(
+                    min(95, int(progress_base + candidate_span * 0.98)),
+                    f"Finished {candidate_label}.",
+                )
 
-            usdz_report = self._export_usdz(glb_path, usdz_path, mesh=portable_mesh)
-            report["usdz_inspection"] = usdz_report
-            report["usdz_created"] = usdz_report["valid"]
-            if not usdz_report["valid"]:
-                report["usdz_error"] = usdz_report.get("error", "USDZ validation failed.")
-            LOGGER.info(
-                "USDZ export valid=%s size=%s textures=%s converter=%s",
-                usdz_report["valid"], usdz_report.get("file_size", 0),
-                usdz_report.get("texture_files", []), usdz_report.get("converter"),
-            )
-            report_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
-        return obj_path, glb_path
+            selected_threshold = min(thresholds, key=lambda value: abs(value - density_threshold))
+            if candidate_mode:
+                (output_dir / "candidate_manifest.json").write_text(
+                    json.dumps({
+                        "version": 1,
+                        "resolution": resolution,
+                        "selected_threshold": selected_threshold,
+                        "candidates": manifest_candidates,
+                    }, indent=2),
+                    encoding="utf-8",
+                )
+        emit_progress(97, "Final model validation complete...")
+        return results[selected_threshold]
 
 
 triposr = TripoSRService()
