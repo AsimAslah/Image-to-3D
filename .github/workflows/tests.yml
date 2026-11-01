@@ -17,8 +17,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
           cache: pip
@@ -34,6 +34,7 @@ jobs:
             einops==0.7.0 \
             trimesh==4.0.5 \
             rembg \
+            onnxruntime \
             huggingface-hub==0.20.3 \
             "fastapi>=0.115,<1" \
             "jinja2>=3.1,<4" \
