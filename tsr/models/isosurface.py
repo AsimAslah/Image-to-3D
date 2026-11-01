@@ -3,7 +3,6 @@ from typing import Callable, Optional, Tuple
 import numpy as np
 import torch
 import torch.nn as nn
-from torchmcubes import marching_cubes
 
 
 class IsosurfaceHelper(nn.Module):
@@ -17,6 +16,11 @@ class IsosurfaceHelper(nn.Module):
 class MarchingCubeHelper(IsosurfaceHelper):
     def __init__(self, resolution: int) -> None:
         super().__init__()
+        # Mesh extraction is optional until inference starts. Keeping the
+        # compiled extension lazy lets API validation and export diagnostics
+        # run on CPU-only systems without pretending generation is available.
+        from torchmcubes import marching_cubes
+
         self.resolution = resolution
         self.mc_func: Callable = marching_cubes
         self._grid_vertices: Optional[torch.FloatTensor] = None

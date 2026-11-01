@@ -22,6 +22,8 @@ class AssetDeliveryTests(unittest.TestCase):
 
     def tearDown(self):
         self.client.close()
+        main.active_saves.clear()
+        main.saved_products.clear()
         self.generated_patch.stop()
         self.temp.cleanup()
 
@@ -147,6 +149,52 @@ class AssetDeliveryTests(unittest.TestCase):
         self.assertIn('data-usdz-ready="true"', response.text)
         self.assertIn("https://studio-example.ngrok-free.app/models/", response.text)
         self.assertIn("/preview/model.usdz", response.text)
+
+    def test_oversized_upload_is_rejected_and_partial_files_are_removed(self):
+        with (
+            patch.object(main, "MAX_UPLOAD_BYTES", 4),
+            patch.object(main.triposr, "convert") as convert,
+        ):
+            response = self.client.post(
+                "/convert",
+                files={"image": ("chair.png", b"too-large", "image/png")},
+                data={"resolution": "320", "density_threshold": "20"},
+            )
+
+        self.assertEqual(response.status_code, 413)
+        self.assertIn("upload_too_large", response.text)
+        self.assertFalse(any(self.generated.iterdir()))
+        convert.assert_not_called()
+
+    def test_storage_errors_are_logged_without_being_reflected_to_clients(self):
+        conversion_id = self.make_asset("model.obj")
+        work_dir = self.generated / str(conversion_id)
+        (work_dir / "model.glb").write_bytes(b"glb")
+        (work_dir / "source.png").write_bytes(b"png")
+
+        with patch.object(main, "save_product", side_effect=RuntimeError("SENSITIVE_STORAGE_DETAIL")):
+            response = self.client.post(
+                "/products",
+                data={
+                    "conversion_id": str(conversion_id),
+                    "name": "Chair",
+                    "category": "Furniture",
+                    "subcategory": "Chair",
+                    "table_name": "products",
+                },
+            )
+
+        self.assertEqual(response.status_code, 500)
+        self.assertNotIn("SENSITIVE_STORAGE_DETAIL", response.text)
+        self.assertIn("could not be saved", response.text)
+
+        main.saved_products[conversion_id] = ("products", "product-id", None, None)
+        with patch.object(main, "undo_product_save", side_effect=RuntimeError("SENSITIVE_UNDO_DETAIL")):
+            undo = self.client.delete(f"/products/{conversion_id}")
+
+        self.assertEqual(undo.status_code, 500)
+        self.assertNotIn("SENSITIVE_UNDO_DETAIL", undo.text)
+        self.assertIn("could not be undone", undo.text)
 
 
 if __name__ == "__main__":

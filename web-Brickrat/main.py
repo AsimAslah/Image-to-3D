@@ -56,6 +56,7 @@ LOGGER = logging.getLogger("furniture_ar.web")
 SAFE_ASSET_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 PREVIEW_SUFFIXES = {".glb", ".obj", ".usdz", ".png", ".jpg", ".jpeg", ".webp", ".mtl"}
 DOWNLOAD_NAMES = {"model.glb", "model.obj", "model.usdz"}
+MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(15 * 1024 * 1024)))
 ASSET_MEDIA_TYPES = {
     ".glb": "model/gltf-binary",
     ".obj": "text/plain; charset=utf-8",
@@ -66,6 +67,26 @@ ASSET_MEDIA_TYPES = {
     ".jpeg": "image/jpeg",
     ".webp": "image/webp",
 }
+
+
+class UploadTooLargeError(ValueError):
+    """Raised after an upload crosses the configured streaming limit."""
+
+
+def _copy_upload_with_limit(source, destination: Path, limit: int) -> int:
+    """Copy an upload in bounded chunks and remove partial output on failure."""
+    total = 0
+    try:
+        with destination.open("wb") as output:
+            while chunk := source.read(1024 * 1024):
+                total += len(chunk)
+                if total > limit:
+                    raise UploadTooLargeError
+                output.write(chunk)
+    except Exception:
+        destination.unlink(missing_ok=True)
+        raise
+    return total
 
 
 def _first_forwarded_value(value: str | None) -> str:
@@ -241,8 +262,7 @@ def convert_image(
         if suffix not in {".png", ".jpg", ".jpeg", ".webp"}:
             suffix = ".png"
         image_path = work_dir / f"source{suffix}"
-        with image_path.open("wb") as destination:
-            shutil.copyfileobj(image.file, destination)
+        _copy_upload_with_limit(image.file, image_path, MAX_UPLOAD_BYTES)
 
         triposr.convert(
             image_path, work_dir,
@@ -251,6 +271,16 @@ def convert_image(
             resolution=resolution,
             preserve_details=preserve_details,
             density_threshold=density_threshold,
+        )
+    except UploadTooLargeError:
+        if "work_dir" in locals():
+            shutil.rmtree(work_dir, ignore_errors=True)
+        return templates.TemplateResponse(
+            request, "conversion_result.html",
+            {
+                "error": f"The uploaded image exceeds the {MAX_UPLOAD_BYTES // (1024 * 1024)} MB limit.",
+                "error_code": "upload_too_large",
+            }, status_code=413,
         )
     except Exception:
         LOGGER.exception("3D conversion failed")
@@ -384,9 +414,14 @@ def create_product(
     except Exception as exc:
         with save_state_lock:
             active_saves.discard(conversion_id)
+        LOGGER.error(
+            "Supabase save failed conversion_id=%s table=%s error_type=%s",
+            conversion_id, table_name, type(exc).__name__,
+        )
         return templates.TemplateResponse(
             request, "save_result.html",
-            {"error": f"Supabase save failed: {exc}"}, status_code=500,
+            {"error": "The product could not be saved. Check the server log and try again."},
+            status_code=500,
         )
     saved = outcome.product
     product_id = str(saved.get("id", ""))
@@ -430,8 +465,13 @@ def undo_product(request: Request, conversion_id: UUID):
             previous_product=previous_product, new_image_path=new_image_path,
         )
     except Exception as exc:
+        LOGGER.error(
+            "Supabase undo failed conversion_id=%s table=%s error_type=%s",
+            conversion_id, table_name, type(exc).__name__,
+        )
         return templates.TemplateResponse(
-            request, "save_result.html", {"error": f"Undo failed: {exc}"},
+            request, "save_result.html",
+            {"error": "The saved product could not be undone. Check the server log and try again."},
             status_code=500,
         )
     with save_state_lock:
