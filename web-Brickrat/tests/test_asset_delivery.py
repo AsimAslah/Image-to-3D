@@ -163,7 +163,16 @@ class AssetDeliveryTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 413)
         self.assertIn("upload_too_large", response.text)
-        self.assertFalse(any(self.generated.iterdir()))
+        work_dirs = list(self.generated.iterdir())
+        self.assertEqual(len(work_dirs), 1)
+        self.assertEqual(
+            {path.name for path in work_dirs[0].iterdir()},
+            {"render-status.json"},
+        )
+        status = json.loads((work_dirs[0] / "render-status.json").read_text())
+        self.assertEqual(status["status"], "failed")
+        self.assertRegex(status["render_id"], r"^R[A-F0-9]{12}$")
+        self.assertNotIn("progress", status)
         convert.assert_not_called()
 
     def test_storage_errors_are_logged_without_being_reflected_to_clients(self):
