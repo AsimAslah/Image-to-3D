@@ -9,11 +9,13 @@ import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Callable
 from uuid import UUID
 
 STATUS_FILENAME = "render-status.json"
 RENDER_ID_PATTERN = re.compile(r"^R[A-Z0-9]{4,31}$")
 VALID_STATES = {"queued", "processing", "completed", "failed"}
+SUPABASE_TABLE_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,62}$")
 
 
 @dataclass
@@ -82,6 +84,54 @@ def read_render_status(generated_dir: Path, render_id: str) -> dict | None:
             result["model_format"] = model_format
         return result
     return None
+
+
+def sync_render_status(
+    record: dict,
+    *,
+    client_factory: Callable | None = None,
+) -> bool:
+    """Upsert a public-safe status record when Supabase sync is configured."""
+    supabase_url = os.getenv("SUPABASE_URL", "").strip()
+    supabase_key = os.getenv("RENDER_STATUS_SUPABASE_KEY", "").strip()
+    if not supabase_url or not supabase_key:
+        return False
+
+    table_name = os.getenv("RENDER_STATUS_SUPABASE_TABLE", "render_jobs").strip()
+    if not SUPABASE_TABLE_PATTERN.fullmatch(table_name):
+        raise ValueError("Invalid render status table name.")
+
+    render_id = str(record.get("render_id", "")).strip().upper()
+    status = record.get("status")
+    updated_at = str(record.get("updated_at", ""))
+    if not RENDER_ID_PATTERN.fullmatch(render_id) or status not in VALID_STATES:
+        raise ValueError("Invalid render status record.")
+    try:
+        datetime.fromisoformat(updated_at.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError("Invalid render status timestamp.") from exc
+
+    safe_record = {
+        "render_id": render_id,
+        "status": status,
+        "updated_at": updated_at,
+    }
+    model_format = record.get("model_format")
+    if model_format is not None:
+        normalized_format = str(model_format).upper()
+        if not re.fullmatch(r"[A-Z0-9]{2,12}", normalized_format):
+            raise ValueError("Invalid model format.")
+        safe_record["model_format"] = normalized_format
+
+    if client_factory is None:
+        from supabase import create_client
+
+        client_factory = create_client
+    client = client_factory(supabase_url, supabase_key)
+    client.table(table_name).upsert(
+        safe_record, on_conflict="render_id",
+    ).execute()
+    return True
 
 
 def authorize_status_request(

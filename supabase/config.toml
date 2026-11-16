@@ -1,0 +1,2 @@
+[functions.render-status]
+verify_jwt = false
