@@ -10,7 +10,7 @@ from pathlib import Path
 from urllib.parse import urljoin
 from uuid import UUID, uuid4
 
-from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -22,6 +22,13 @@ from supabase_store import (
 )
 from triposr_service import triposr
 from model_diagnostics import inspect_model
+from render_status import (
+    RenderStatusAuthError,
+    authorize_status_request,
+    public_render_id,
+    read_render_status,
+    write_render_status,
+)
 
 BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / ".env")
@@ -148,6 +155,19 @@ def _asset_metadata(path: Path | None) -> dict | None:
     return {"bytes": size, "display": display}
 
 
+def _record_render_status(conversion_id: UUID, status: str, *, model_format: str | None = None) -> None:
+    """Keep status tracking from breaking the existing conversion experience."""
+    try:
+        write_render_status(
+            GENERATED_DIR, conversion_id, status, model_format=model_format,
+        )
+    except Exception:
+        LOGGER.exception(
+            "Could not persist render status conversion_id=%s status=%s",
+            conversion_id, status,
+        )
+
+
 @app.middleware("http")
 async def cache_headers(request: Request, call_next):
     response = await call_next(request)
@@ -258,12 +278,14 @@ def convert_image(
         conversion_id = uuid4()
         work_dir = GENERATED_DIR / str(conversion_id)
         work_dir.mkdir(parents=True)
+        _record_render_status(conversion_id, "queued")
         suffix = Path(image.filename or "source.png").suffix.lower()
         if suffix not in {".png", ".jpg", ".jpeg", ".webp"}:
             suffix = ".png"
         image_path = work_dir / f"source{suffix}"
         _copy_upload_with_limit(image.file, image_path, MAX_UPLOAD_BYTES)
 
+        _record_render_status(conversion_id, "processing")
         triposr.convert(
             image_path, work_dir,
             remove_bg=remove_background,
@@ -275,6 +297,8 @@ def convert_image(
     except UploadTooLargeError:
         if "work_dir" in locals():
             shutil.rmtree(work_dir, ignore_errors=True)
+        if "conversion_id" in locals():
+            _record_render_status(conversion_id, "failed")
         return templates.TemplateResponse(
             request, "conversion_result.html",
             {
@@ -286,6 +310,8 @@ def convert_image(
         LOGGER.exception("3D conversion failed")
         if "work_dir" in locals():
             shutil.rmtree(work_dir, ignore_errors=True)
+        if "conversion_id" in locals():
+            _record_render_status(conversion_id, "failed")
         return templates.TemplateResponse(
             request, "conversion_result.html",
             {
@@ -310,6 +336,7 @@ def convert_image(
     usdz_inspection = material_report.get("usdz_inspection", {})
     glb_valid = bool(glb_path.is_file() and glb_inspection.get("valid"))
     usdz_valid = bool(usdz_path.is_file() and usdz_inspection.get("valid"))
+    _record_render_status(conversion_id, "completed", model_format="GLB")
     preview_path = f"/models/{conversion_id}/preview"
     download_path = f"/models/{conversion_id}/download"
     obj_url = _external_url(request, f"{preview_path}/model.obj") if obj_path.is_file() else None
@@ -327,6 +354,7 @@ def convert_image(
         request, "conversion_result.html",
         {
             "conversion_id": conversion_id,
+            "render_id": public_render_id(conversion_id),
             "image_url": _external_url(request, f"{preview_path}/{image_path.name}"),
             "processed_url": _external_url(request, f"{preview_path}/processed.png"),
             "obj_url": obj_url,
@@ -485,6 +513,27 @@ def undo_product(request: Request, conversion_id: UUID):
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.get("/api/renders/{render_id}/status")
+def render_status(
+    render_id: str,
+    authorization: str | None = Header(default=None),
+    x_renderpulse_slack_team: str | None = Header(default=None),
+    x_renderpulse_slack_channel: str | None = Header(default=None),
+):
+    try:
+        authorize_status_request(
+            authorization,
+            x_renderpulse_slack_team,
+            x_renderpulse_slack_channel,
+        )
+    except RenderStatusAuthError as exc:
+        raise HTTPException(exc.status_code, exc.public_message) from None
+    record = read_render_status(GENERATED_DIR, render_id)
+    if record is None:
+        raise HTTPException(404, "Render not found.")
+    return record
 
 
 @app.get("/debug/models/{conversion_id}", include_in_schema=False)

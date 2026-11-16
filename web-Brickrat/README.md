@@ -4,6 +4,14 @@ FastAPI/PWA frontend for converting a furniture photo with TripoSR, exporting
 portable OBJ/GLB assets, optionally converting a validated GLB to USDZ, and
 saving the product and public asset URLs to Supabase.
 
+Completed conversions now display a stable RenderPulse ID. The authenticated,
+read-only `GET /api/renders/{render_id}/status` endpoint reports real lifecycle
+states (`queued`, `processing`, `completed`, or `failed`) without exposing model
+URLs or inventing progress. Configure `RENDER_STATUS_API_KEY`,
+`RENDER_STATUS_ALLOWED_TEAM_ID`, and `RENDER_STATUS_ALLOWED_CHANNEL_IDS`; callers
+must send the bearer key plus `X-RenderPulse-Slack-Team` and
+`X-RenderPulse-Slack-Channel` headers.
+
 ## What the export contains
 
 TripoSR in this repository returns geometry plus per-vertex colours. It does not
