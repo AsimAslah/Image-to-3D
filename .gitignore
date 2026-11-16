@@ -124,6 +124,7 @@ checkpoints/
 flagged/
 tmp/
 temp/
+supabase/.temp/
 
 # Accidental nested repository copies
 TripoSR/

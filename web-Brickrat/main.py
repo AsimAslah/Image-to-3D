@@ -27,6 +27,7 @@ from render_status import (
     authorize_status_request,
     public_render_id,
     read_render_status,
+    sync_render_status,
     write_render_status,
 )
 
@@ -158,13 +159,21 @@ def _asset_metadata(path: Path | None) -> dict | None:
 def _record_render_status(conversion_id: UUID, status: str, *, model_format: str | None = None) -> None:
     """Keep status tracking from breaking the existing conversion experience."""
     try:
-        write_render_status(
+        record = write_render_status(
             GENERATED_DIR, conversion_id, status, model_format=model_format,
         )
     except Exception:
         LOGGER.exception(
             "Could not persist render status conversion_id=%s status=%s",
             conversion_id, status,
+        )
+        return
+    try:
+        sync_render_status(record)
+    except Exception as exc:
+        LOGGER.warning(
+            "Could not sync render status conversion_id=%s status=%s error_type=%s",
+            conversion_id, status, type(exc).__name__,
         )
 
 

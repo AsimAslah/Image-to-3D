@@ -12,6 +12,11 @@ URLs or inventing progress. Configure `RENDER_STATUS_API_KEY`,
 must send the bearer key plus `X-RenderPulse-Slack-Team` and
 `X-RenderPulse-Slack-Channel` headers.
 
+For a no-cost public status endpoint, keep TripoSR running locally and sync
+these lifecycle records to a protected Supabase table. The included Edge
+Function preserves the same RenderPulse API contract. Follow
+[`docs/FREE_SUPABASE_DEPLOYMENT.md`](../docs/FREE_SUPABASE_DEPLOYMENT.md).
+
 ## What the export contains
 
 TripoSR in this repository returns geometry plus per-vertex colours. It does not

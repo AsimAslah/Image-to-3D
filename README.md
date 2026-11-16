@@ -15,6 +15,10 @@ Supabase.
 5. Start the server: `uvicorn main:app --reload`
 6. Open `http://127.0.0.1:8000`.
 
+To publish the authenticated RenderPulse status endpoint without paying for a
+GPU server, keep conversion on your computer and use the included Supabase Edge
+Function. See [Free Render Status Deployment with Supabase](docs/FREE_SUPABASE_DEPLOYMENT.md).
+
 The TripoSR model is downloaded and loaded lazily on the first conversion. The
 original Gradio application remains available through `python app.py`.
 
